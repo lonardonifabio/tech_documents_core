@@ -84,7 +84,7 @@ jobs:
           fi
 
       - name: Install Node.js dependencies
-        run: npm ci
+        run: npm install
 
       - name: Start Ollama service (if needed)
         run: |

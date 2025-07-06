@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Checkout repository manually
         run: |
-          git clone https://github.com/lonardonifabio/tech_documents_core.git .
+          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/lonardonifabio/tech_documents_core.git .
           git checkout ${{ github.sha }}
 
       - name: Fetch documents and data from public repository
@@ -91,7 +91,7 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          npm ci
+          npm install
           echo "✓ Node.js dependencies installed"
 
       - name: Start Ollama service (if needed)
