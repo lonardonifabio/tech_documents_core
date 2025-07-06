@@ -4,7 +4,7 @@ This guide explains how to complete the setup for the free GitHub Pages deployme
 
 ## 🎯 Overview
 
-**Architecture**: Private repo (code) → Build → Deploy to Public repo (gh-pages) → Free GitHub Pages hosting
+**Architecture**: Private repo (code) → Build → Deploy to Public repo (main) → Free GitHub Pages hosting
 
 **Cost**: $0/month (no GitHub Pro needed!)
 
@@ -36,7 +36,7 @@ Use the `deploy-custom.yml` workflow which only uses built-in commands and doesn
 2. Click **Settings** tab
 3. Scroll down to **Pages** section
 4. Under **Source**, select **Deploy from a branch**
-5. Choose **gh-pages** branch
+5. Choose **main** branch
 6. Click **Save**
 
 ### Step 2: Add Trigger Workflow to Public Repository
