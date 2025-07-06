@@ -1,4 +1,4 @@
-name: Build and Deploy from Private Repo
+name: Build and Deploy to Public Repo (Free)
 
 on:
   repository_dispatch:
@@ -9,11 +9,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: "deploy"
   cancel-in-progress: false
 
 jobs:
@@ -123,21 +121,22 @@ jobs:
           npm run build
           echo "✓ Astro site built successfully"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+      - name: Deploy to Public Repository GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: './dist'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+          personal_token: ${{ secrets.PRIVATE_REPO_PAT }}
+          external_repository: lonardonifabio/tech_documents
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy from private repository: ${{ github.sha }}'
 
       - name: Deployment Summary
         run: |
           echo "🚀 Deployment completed successfully!"
-          echo "📊 Site URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
           echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
           echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
+          echo "🎯 Deployed to: Public repository gh-pages branch (FREE)"
