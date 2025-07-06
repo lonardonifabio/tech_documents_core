@@ -142,11 +142,39 @@ jobs:
           # Create or switch to main branch
           git checkout main || git checkout --orphan main
           
-          # Clear existing content
-          git rm -rf . || true
+          # Preserve documents and data folders
+          if [ -d "documents" ]; then
+            cp -r documents ../backup_documents
+            echo "✓ Backed up documents folder"
+          fi
+          
+          if [ -d "data" ]; then
+            cp -r data ../backup_data
+            echo "✓ Backed up data folder"
+          fi
+          
+          # Clear only web files, preserve documents and data
+          find . -maxdepth 1 -type f -name "*.html" -delete || true
+          find . -maxdepth 1 -type f -name "*.js" -delete || true
+          find . -maxdepth 1 -type f -name "*.css" -delete || true
+          find . -maxdepth 1 -type f -name "*.svg" -delete || true
+          rm -rf assets/ || true
+          rm -rf _astro/ || true
+          rm -f .nojekyll || true
           
           # Copy built site
           cp -r ../dist/* .
+          
+          # Restore documents and data folders
+          if [ -d "../backup_documents" ]; then
+            cp -r ../backup_documents ./documents
+            echo "✓ Restored documents folder"
+          fi
+          
+          if [ -d "../backup_data" ]; then
+            cp -r ../backup_data ./data
+            echo "✓ Restored data folder"
+          fi
           
           # Add .nojekyll file for GitHub Pages (disable Jekyll processing)
           touch .nojekyll

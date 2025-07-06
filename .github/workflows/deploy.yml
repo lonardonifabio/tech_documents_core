@@ -133,7 +133,8 @@ jobs:
           external_repository: lonardonifabio/tech_documents
           publish_branch: main
           publish_dir: ./dist
-          force_orphan: true
+          force_orphan: false
+          keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Deploy from private repository: ${{ github.sha }}'
