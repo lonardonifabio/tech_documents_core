@@ -81,87 +81,84 @@ export const GET: APIRoute = async ({ params }) => {
 };
 
 function generateSVGPreview(doc: any): string {
-  const width = 1200;
-  const height = 630;
+  const width = 400;
+  const height = 300;
   
-  // Category-based styling
-  const categoryStyles = {
-    'AI': {
-      gradient: ['#667eea', '#764ba2'],
-      icon: '🤖',
-      accent: '#667eea'
-    },
-    'Machine Learning': {
-      gradient: ['#f093fb', '#f5576c'],
-      icon: '🧠',
-      accent: '#f093fb'
-    },
-    'Data Science': {
-      gradient: ['#4facfe', '#00f2fe'],
-      icon: '📊',
-      accent: '#4facfe'
-    },
-    'Business': {
-      gradient: ['#43e97b', '#38f9d7'],
-      icon: '💼',
-      accent: '#43e97b'
-    },
-    'Technology': {
-      gradient: ['#fa709a', '#fee140'],
-      icon: '⚙️',
-      accent: '#fa709a'
-    },
-    'Research': {
-      gradient: ['#a8edea', '#fed6e3'],
-      icon: '🔬',
-      accent: '#a8edea'
-    }
+  // Create a document-like preview that simulates a PDF first page
+  const title = (doc.title || doc.filename).substring(0, 50);
+  const summary = doc.summary ? doc.summary.substring(0, 200) + '...' : '';
+  const authors = doc.authors ? doc.authors.slice(0, 2).join(', ') : '';
+  
+  // Escape HTML entities
+  const escapeHtml = (text: string) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   };
 
-  const style = categoryStyles[doc.category as keyof typeof categoryStyles] || categoryStyles['Technology'];
-  const title = (doc.title || doc.filename).substring(0, 60); // Limit title length
-  const keywords = doc.keywords ? doc.keywords.slice(0, 3).join(' • ') : '';
+  const safeTitle = escapeHtml(title);
+  const safeSummary = escapeHtml(summary);
+  const safeAuthors = escapeHtml(authors);
 
   return `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${style.gradient[0]};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${style.gradient[1]};stop-opacity:1" />
-        </linearGradient>
+        <style>
+          .doc-bg { fill: #ffffff; }
+          .doc-border { fill: none; stroke: #e5e7eb; stroke-width: 2; }
+          .doc-shadow { fill: #f3f4f6; }
+          .title-text { font-family: 'Times New Roman', serif; font-size: 16px; font-weight: bold; fill: #1f2937; }
+          .author-text { font-family: 'Times New Roman', serif; font-size: 12px; fill: #6b7280; }
+          .content-text { font-family: 'Times New Roman', serif; font-size: 10px; fill: #374151; }
+          .header-line { stroke: #d1d5db; stroke-width: 1; }
+        </style>
       </defs>
       
-      <!-- Background -->
-      <rect width="100%" height="100%" fill="url(#bg)" />
+      <!-- Document shadow -->
+      <rect x="4" y="4" width="${width-4}" height="${height-4}" rx="4" class="doc-shadow" />
       
-      <!-- Overlay -->
-      <rect width="100%" height="100%" fill="rgba(0,0,0,0.2)" />
+      <!-- Document background -->
+      <rect x="0" y="0" width="${width-4}" height="${height-4}" rx="4" class="doc-bg" />
+      <rect x="0" y="0" width="${width-4}" height="${height-4}" rx="4" class="doc-border" />
       
-      <!-- Decorative circles -->
-      <circle cx="100" cy="100" r="80" fill="rgba(255,255,255,0.1)" />
-      <circle cx="1100" cy="530" r="60" fill="rgba(255,255,255,0.1)" />
-      
-      <!-- Icon -->
-      <text x="600" y="200" font-family="Arial" font-size="100" text-anchor="middle" fill="white">${style.icon}</text>
+      <!-- Document header area -->
+      <rect x="20" y="20" width="${width-44}" height="60" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1" rx="2" />
       
       <!-- Title -->
-      <text x="600" y="280" font-family="Arial" font-size="42" font-weight="bold" text-anchor="middle" fill="white">
-        <tspan x="600" dy="0">${title}</tspan>
+      <text x="25" y="40" class="title-text">
+        <tspan x="25" dy="0">${safeTitle.length > 35 ? safeTitle.substring(0, 32) + '...' : safeTitle}</tspan>
       </text>
       
-      <!-- Category Badge -->
-      <rect x="450" y="340" width="120" height="32" rx="16" fill="${style.accent}" fill-opacity="0.9" />
-      <text x="510" y="360" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">${doc.category}</text>
+      <!-- Authors -->
+      ${safeAuthors ? `<text x="25" y="60" class="author-text">${safeAuthors.length > 40 ? safeAuthors.substring(0, 37) + '...' : safeAuthors}</text>` : ''}
       
-      <!-- Difficulty Badge -->
-      <rect x="630" y="340" width="120" height="32" rx="16" fill="#ff6b6b" fill-opacity="0.9" />
-      <text x="690" y="360" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">${doc.difficulty}</text>
+      <!-- Header line -->
+      <line x1="20" y1="90" x2="${width-24}" y2="90" class="header-line" />
       
-      <!-- Keywords -->
-      <text x="600" y="420" font-family="Arial" font-size="18" text-anchor="middle" fill="rgba(255,255,255,0.9)">${keywords}</text>
+      <!-- Content lines (simulating text) -->
+      <text x="25" y="110" class="content-text">
+        <tspan x="25" dy="0">${safeSummary.length > 45 ? safeSummary.substring(0, 42) + '...' : safeSummary}</tspan>
+        <tspan x="25" dy="15">${safeSummary.length > 45 ? safeSummary.substring(42, 87) + '...' : ''}</tspan>
+        <tspan x="25" dy="15">${safeSummary.length > 87 ? safeSummary.substring(87, 132) + '...' : ''}</tspan>
+        <tspan x="25" dy="15">${safeSummary.length > 132 ? safeSummary.substring(132, 177) + '...' : ''}</tspan>
+      </text>
       
-      <!-- Branding -->
-      <text x="1160" y="600" font-family="Arial" font-size="16" font-weight="bold" text-anchor="end" fill="rgba(255,255,255,0.8)">AI & Data Science Document Library</text>
+      <!-- Simulated text lines -->
+      <line x1="25" y1="180" x2="${width-40}" y2="180" stroke="#e5e7eb" stroke-width="1" />
+      <line x1="25" y1="195" x2="${width-60}" y2="195" stroke="#e5e7eb" stroke-width="1" />
+      <line x1="25" y1="210" x2="${width-45}" y2="210" stroke="#e5e7eb" stroke-width="1" />
+      <line x1="25" y1="225" x2="${width-55}" y2="225" stroke="#e5e7eb" stroke-width="1" />
+      <line x1="25" y1="240" x2="${width-35}" y2="240" stroke="#e5e7eb" stroke-width="1" />
+      
+      <!-- Category badge -->
+      <rect x="${width-80}" y="10" width="70" height="20" rx="10" fill="#3b82f6" />
+      <text x="${width-45}" y="23" font-family="Arial" font-size="10" font-weight="bold" text-anchor="middle" fill="white">${doc.category}</text>
+      
+      <!-- Page number -->
+      <text x="${width-25}" y="${height-10}" font-family="Arial" font-size="8" text-anchor="middle" fill="#9ca3af">1</text>
     </svg>
   `;
 }
