@@ -13,6 +13,20 @@ This guide explains how to complete the setup for the free GitHub Pages deployme
 1. ✅ Private repository setup with source code
 2. ✅ Modified deployment workflow to use free GitHub Pages
 3. ✅ Configured cross-repository deployment
+4. ✅ Created custom workflow for restricted Actions environments
+
+## ⚠️ GitHub Actions Restriction Fix
+
+If you get an error about actions not being allowed, you have two options:
+
+### Option A: Enable Third-Party Actions (Recommended)
+1. Go to your private repository: https://github.com/lonardonifabio/tech_documents_core
+2. Settings → Actions → General
+3. Under "Actions permissions", select **"Allow all actions and reusable workflows"**
+4. Save and use the original `deploy.yml` workflow
+
+### Option B: Use Custom Workflow (No Third-Party Actions)
+Use the `deploy-custom.yml` workflow which only uses built-in commands and doesn't require third-party actions.
 
 ## 🔧 Required Setup Steps
 

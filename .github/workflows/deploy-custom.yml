@@ -1,0 +1,167 @@
+name: Build and Deploy to Public Repo (Custom - No Third Party Actions)
+
+on:
+  repository_dispatch:
+    types: [documents-updated]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "deploy"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository manually
+        run: |
+          git clone https://github.com/lonardonifabio/tech_documents_core.git .
+          git checkout ${{ github.sha }}
+
+      - name: Fetch documents and data from public repository
+        run: |
+          echo "Fetching documents from public repository..."
+          git clone https://github.com/lonardonifabio/tech_documents.git temp_public
+          
+          # Copy documents and data folders
+          if [ -d "temp_public/documents" ]; then
+            cp -r temp_public/documents ./documents
+            echo "✓ Documents folder copied"
+          else
+            echo "⚠ Documents folder not found in public repo"
+            mkdir -p documents
+          fi
+          
+          if [ -d "temp_public/data" ]; then
+            cp -r temp_public/data ./data
+            echo "✓ Data folder copied"
+          else
+            echo "⚠ Data folder not found in public repo"
+            mkdir -p data
+            echo "[]" > data/documents.json
+          fi
+          
+          # Clean up
+          rm -rf temp_public
+          
+          echo "Files fetched from public repository:"
+          ls -la documents/ || echo "No documents found"
+          ls -la data/ || echo "No data found"
+
+      - name: Setup Node.js manually
+        run: |
+          # Install Node.js 18
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          node --version
+          npm --version
+
+      - name: Setup Python manually
+        run: |
+          # Python is pre-installed on ubuntu-latest
+          python3 --version
+          pip3 --version
+          # Create symlinks for convenience
+          sudo ln -sf /usr/bin/python3 /usr/bin/python
+          sudo ln -sf /usr/bin/pip3 /usr/bin/pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick libmagickwand-dev exiftool libreoffice
+          
+          # Configure ImageMagick policy for PDF processing
+          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF" \/>/<policy domain="coder" rights="read|write" pattern="PDF" \/>/' /etc/ImageMagick-6/policy.xml || true
+
+      - name: Install Python dependencies
+        run: |
+          if [ -f "scripts/requirements.txt" ]; then
+            pip install -r scripts/requirements.txt
+            echo "✓ Python dependencies installed"
+          else
+            echo "⚠ No Python requirements.txt found"
+          fi
+
+      - name: Install Node.js dependencies
+        run: |
+          npm ci
+          echo "✓ Node.js dependencies installed"
+
+      - name: Start Ollama service (if needed)
+        run: |
+          if [ -f "scripts/start_ollama_service.py" ]; then
+            python scripts/start_ollama_service.py &
+            echo "✓ Ollama service started"
+          else
+            echo "⚠ Ollama service script not found"
+          fi
+
+      - name: Generate document previews
+        run: |
+          if [ -f "scripts/generate_previews_simple.py" ]; then
+            python scripts/generate_previews_simple.py
+            echo "✓ Document previews generated"
+          elif [ -f "scripts/generate_previews.py" ]; then
+            python scripts/generate_previews.py
+            echo "✓ Document previews generated"
+          else
+            echo "⚠ No preview generation script found"
+          fi
+
+      - name: Ensure data files exist
+        run: |
+          if [ -f "scripts/ensure_data.py" ]; then
+            python scripts/ensure_data.py
+            echo "✓ Data files ensured"
+          else
+            echo "⚠ No ensure_data.py script found"
+          fi
+
+      - name: Build Astro site
+        run: |
+          npm run build
+          echo "✓ Astro site built successfully"
+
+      - name: Deploy to Public Repository manually
+        run: |
+          # Configure git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Clone the public repository
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
+          cd public_repo
+          
+          # Create or switch to gh-pages branch
+          git checkout gh-pages || git checkout --orphan gh-pages
+          
+          # Clear existing content
+          git rm -rf . || true
+          
+          # Copy built site
+          cp -r ../dist/* .
+          
+          # Add .nojekyll file for GitHub Pages
+          touch .nojekyll
+          
+          # Commit and push
+          git add .
+          git commit -m "Deploy from private repository: ${{ github.sha }}" || echo "No changes to commit"
+          git push origin gh-pages --force
+          
+          echo "✓ Deployed to public repository gh-pages branch"
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
+          echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
+          echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
+          echo "🎯 Deployed to: Public repository gh-pages branch (FREE)"
