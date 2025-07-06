@@ -28,7 +28,7 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc, autoOpen = false }) =>
 
   // Get document preview URL with fallback
   const getDocumentPreviewUrl = (doc: Document) => {
-    const baseUrl = import.meta.env.DEV ? '' : '/tech_documents_core';
+    const baseUrl = import.meta.env.DEV ? '' : '/tech_documents';
     return `${baseUrl}/preview/${doc.id}.jpg`;
   };
 
