@@ -124,7 +124,7 @@ jobs:
       - name: Deploy to Public Repository GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          personal_token: ${{ secrets.PRIVATE_REPO_PAT }}
+          personal_token: ${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}
           external_repository: lonardonifabio/tech_documents
           publish_branch: gh-pages
           publish_dir: ./dist

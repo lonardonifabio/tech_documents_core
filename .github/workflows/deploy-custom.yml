@@ -136,7 +136,7 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
           # Clone the public repository
-          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
+          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
           cd public_repo
           
           # Create or switch to gh-pages branch
