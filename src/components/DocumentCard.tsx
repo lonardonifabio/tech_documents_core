@@ -15,6 +15,22 @@ interface Document {
   file_size: number;
   upload_date: string;
   content_preview?: string;
+  target_audience?: string;
+  industry?: string[];
+  business_functions?: string[];
+  companies?: string[];
+  technologies?: string[];
+  processes?: string[];
+  technical_terms?: string[];
+  methodologies?: string[];
+  tools_mentioned?: string[];
+  prerequisites?: string[];
+  learning_objectives?: string[];
+  use_cases?: string[];
+  benefits_mentioned?: string[];
+  challenges_addressed?: string[];
+  best_practices?: string[];
+  questions_and_answers?: string[];
 }
 
 interface DocumentCardProps {
