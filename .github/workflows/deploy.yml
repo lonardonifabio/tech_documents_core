@@ -1,4 +1,4 @@
-name: Build and Deploy to Public Repo (Free)
+name: Build and Deploy (Optimized)
 
 on:
   repository_dispatch:
@@ -19,20 +19,27 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout private repository
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Fetch documents and data from public repository
         run: |
           echo "Fetching documents from public repository..."
-          git clone https://github.com/lonardonifabio/tech_documents.git temp_public
+          git clone --depth=1 https://github.com/lonardonifabio/tech_documents.git temp_public
           
           # Copy documents and data folders
           if [ -d "temp_public/documents" ]; then
             cp -r temp_public/documents ./documents
-            echo "✓ Documents folder copied"
+            echo "✓ Documents folder copied ($(find documents -name "*.pdf" | wc -l) PDFs)"
           else
             echo "⚠ Documents folder not found in public repo"
             mkdir -p documents
@@ -42,7 +49,7 @@ jobs:
             cp -r temp_public/data ./data
             echo "✓ Data folder copied"
           else
-            echo "⚠ Data folder not found in public repo"
+            echo "⚠ Data folder not found in public repo - creating minimal data"
             mkdir -p data
             echo "[]" > data/documents.json
           fi
@@ -50,9 +57,9 @@ jobs:
           # Clean up
           rm -rf temp_public
           
-          echo "Files fetched from public repository:"
-          ls -la documents/ || echo "No documents found"
-          ls -la data/ || echo "No data found"
+          echo "Files available for build:"
+          ls -la documents/ 2>/dev/null || echo "No documents directory"
+          ls -la data/ 2>/dev/null || echo "No data directory"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -60,73 +67,23 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install system dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick libmagickwand-dev exiftool libreoffice
-          
-          # Configure ImageMagick policy for PDF processing
-          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF" \/>/<policy domain="coder" rights="read|write" pattern="PDF" \/>/' /etc/ImageMagick-6/policy.xml || true
-
-      - name: Install Python dependencies
-        run: |
-          if [ -f "scripts/requirements.txt" ]; then
-            pip install -r scripts/requirements.txt
-            echo "✓ Python dependencies installed"
-          else
-            echo "⚠ No Python requirements.txt found"
-          fi
-
-      - name: Install Node.js dependencies
-        run: npm install
-
-      - name: Start Ollama service (if needed)
-        run: |
-          if [ -f "scripts/start_ollama_service.py" ]; then
-            python scripts/start_ollama_service.py &
-            echo "✓ Ollama service started"
-          else
-            echo "⚠ Ollama service script not found"
-          fi
-
-      - name: Generate document previews
-        run: |
-          if [ -f "scripts/generate_previews_simple.py" ]; then
-            python scripts/generate_previews_simple.py
-            echo "✓ Document previews generated"
-          elif [ -f "scripts/generate_previews.py" ]; then
-            python scripts/generate_previews.py
-            echo "✓ Document previews generated"
-          else
-            echo "⚠ No preview generation script found"
-          fi
-
-      - name: Ensure data files exist
-        run: |
-          if [ -f "scripts/ensure_data.py" ]; then
-            python scripts/ensure_data.py
-            echo "✓ Data files ensured"
-          else
-            echo "⚠ No ensure_data.py script found"
-          fi
+          npm ci --prefer-offline --no-audit
+          echo "✓ Dependencies installed"
 
       - name: Build Astro site
         run: |
+          echo "Building site..."
           npm run build
-          echo "✓ Astro site built successfully"
+          echo "✓ Site built successfully"
 
-      - name: Add .nojekyll file to disable Jekyll
+      - name: Add .nojekyll file
         run: |
           touch ./dist/.nojekyll
-          echo "✓ Added .nojekyll file to disable Jekyll processing"
+          echo "✓ Added .nojekyll file"
 
-      - name: Deploy to Public Repository GitHub Pages
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           personal_token: ${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}
@@ -143,6 +100,6 @@ jobs:
         run: |
           echo "🚀 Deployment completed successfully!"
           echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
-          echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
-          echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
-          echo "🎯 Deployed to: Public repository main branch (FREE)"
+          echo "📁 Documents: $(find documents -name "*.pdf" 2>/dev/null | wc -l || echo '0')"
+          echo "📄 Data files: $(ls -la data/ 2>/dev/null | wc -l || echo '0')"
+          echo "💾 Optimized for cost efficiency"
