@@ -52,8 +52,8 @@ jobs:
           npm --version
           python3 --version
           
-          # Install only essential dependencies
-          npm install --production --no-optional
+          # Install dependencies (need optional deps for Rollup native binaries)
+          npm ci --prefer-offline --no-audit
           echo "✓ Dependencies installed"
 
       - name: Build site (minimal processing)
