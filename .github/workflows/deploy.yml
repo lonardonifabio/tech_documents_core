@@ -1,0 +1,143 @@
+name: Build and Deploy from Private Repo
+
+on:
+  repository_dispatch:
+    types: [documents-updated]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout private repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch documents and data from public repository
+        run: |
+          echo "Fetching documents from public repository..."
+          git clone https://github.com/lonardonifabio/tech_documents.git temp_public
+          
+          # Copy documents and data folders
+          if [ -d "temp_public/documents" ]; then
+            cp -r temp_public/documents ./documents
+            echo "✓ Documents folder copied"
+          else
+            echo "⚠ Documents folder not found in public repo"
+            mkdir -p documents
+          fi
+          
+          if [ -d "temp_public/data" ]; then
+            cp -r temp_public/data ./data
+            echo "✓ Data folder copied"
+          else
+            echo "⚠ Data folder not found in public repo"
+            mkdir -p data
+            echo "[]" > data/documents.json
+          fi
+          
+          # Clean up
+          rm -rf temp_public
+          
+          echo "Files fetched from public repository:"
+          ls -la documents/ || echo "No documents found"
+          ls -la data/ || echo "No data found"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick libmagickwand-dev exiftool libreoffice
+          
+          # Configure ImageMagick policy for PDF processing
+          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
+          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF" \/>/<policy domain="coder" rights="read|write" pattern="PDF" \/>/' /etc/ImageMagick-6/policy.xml || true
+
+      - name: Install Python dependencies
+        run: |
+          if [ -f "scripts/requirements.txt" ]; then
+            pip install -r scripts/requirements.txt
+            echo "✓ Python dependencies installed"
+          else
+            echo "⚠ No Python requirements.txt found"
+          fi
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Start Ollama service (if needed)
+        run: |
+          if [ -f "scripts/start_ollama_service.py" ]; then
+            python scripts/start_ollama_service.py &
+            echo "✓ Ollama service started"
+          else
+            echo "⚠ Ollama service script not found"
+          fi
+
+      - name: Generate document previews
+        run: |
+          if [ -f "scripts/generate_previews_simple.py" ]; then
+            python scripts/generate_previews_simple.py
+            echo "✓ Document previews generated"
+          elif [ -f "scripts/generate_previews.py" ]; then
+            python scripts/generate_previews.py
+            echo "✓ Document previews generated"
+          else
+            echo "⚠ No preview generation script found"
+          fi
+
+      - name: Ensure data files exist
+        run: |
+          if [ -f "scripts/ensure_data.py" ]; then
+            python scripts/ensure_data.py
+            echo "✓ Data files ensured"
+          else
+            echo "⚠ No ensure_data.py script found"
+          fi
+
+      - name: Build Astro site
+        run: |
+          npm run build
+          echo "✓ Astro site built successfully"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment completed successfully!"
+          echo "📊 Site URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
+          echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"

@@ -1,0 +1,36 @@
+name: Trigger Private Repository Update
+
+on:
+  push:
+    paths:
+      - 'documents/**'
+      - 'data/**'
+  workflow_dispatch:
+
+jobs:
+  trigger-private-repo:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger private repository workflow
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+          repository: lonardonifabio/tech_documents_core
+          event-type: documents-updated
+          client-payload: |
+            {
+              "ref": "${{ github.ref }}",
+              "sha": "${{ github.sha }}",
+              "repository": "${{ github.repository }}",
+              "pusher": "${{ github.actor }}",
+              "timestamp": "${{ github.event.head_commit.timestamp }}"
+            }
+
+      - name: Workflow Summary
+        run: |
+          echo "🔄 Triggered private repository update"
+          echo "📁 Repository: lonardonifabio/tech_documents_core"
+          echo "🎯 Event: documents-updated"
+          echo "📊 Commit: ${{ github.sha }}"
+          echo "👤 Triggered by: ${{ github.actor }}"
