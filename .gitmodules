@@ -1,0 +1,3 @@
+[submodule "public_data"]
+	path = public_data
+	url = https://github.com/lonardonifabio/tech_documents.git
