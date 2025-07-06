@@ -1,4 +1,4 @@
-name: Build and Deploy to Public Repo (Custom - No Third Party Actions)
+name: Build and Deploy to Public Repo (Lightweight - No Third Party Actions)
 
 on:
   repository_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: "deploy"
+  group: "deploy-lightweight"
   cancel-in-progress: false
 
 jobs:
@@ -19,178 +19,85 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository manually
+      - name: Free up disk space
         run: |
-          git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/lonardonifabio/tech_documents_core.git .
-          git checkout ${{ github.sha }}
+          # Remove unnecessary packages to free up space
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
 
-      - name: Fetch documents and data from public repository
+      - name: Checkout repository
+        run: |
+          git clone --depth=1 https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/lonardonifabio/tech_documents_core.git .
+
+      - name: Fetch documents and data (lightweight)
         run: |
           echo "Fetching documents from public repository..."
-          git clone https://github.com/lonardonifabio/tech_documents.git temp_public
+          git clone --depth=1 https://github.com/lonardonifabio/tech_documents.git temp_public
           
-          # Copy documents and data folders
-          if [ -d "temp_public/documents" ]; then
-            cp -r temp_public/documents ./documents
-            echo "✓ Documents folder copied"
-          else
-            echo "⚠ Documents folder not found in public repo"
-            mkdir -p documents
-          fi
+          # Copy only essential folders
+          [ -d "temp_public/documents" ] && cp -r temp_public/documents ./documents || mkdir -p documents
+          [ -d "temp_public/data" ] && cp -r temp_public/data ./data || (mkdir -p data && echo "[]" > data/documents.json)
           
-          if [ -d "temp_public/data" ]; then
-            cp -r temp_public/data ./data
-            echo "✓ Data folder copied"
-          else
-            echo "⚠ Data folder not found in public repo"
-            mkdir -p data
-            echo "[]" > data/documents.json
-          fi
-          
-          # Clean up
+          # Clean up immediately
           rm -rf temp_public
-          
-          echo "Files fetched from public repository:"
-          ls -la documents/ || echo "No documents found"
-          ls -la data/ || echo "No data found"
+          echo "✓ Documents and data fetched"
 
-      - name: Setup Node.js manually
+      - name: Setup environment (minimal)
         run: |
-          # Install Node.js 18
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
+          # Use pre-installed Node.js and Python
           node --version
           npm --version
-
-      - name: Setup Python manually
-        run: |
-          # Python is pre-installed on ubuntu-latest
           python3 --version
-          pip3 --version
-          # Create symlinks for convenience
-          sudo ln -sf /usr/bin/python3 /usr/bin/python
-          sudo ln -sf /usr/bin/pip3 /usr/bin/pip
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick libmagickwand-dev exiftool libreoffice
           
-          # Configure ImageMagick policy for PDF processing
-          sudo sed -i 's/rights="none" pattern="PDF"/rights="read|write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml || true
-          sudo sed -i 's/<policy domain="coder" rights="none" pattern="PDF" \/>/<policy domain="coder" rights="read|write" pattern="PDF" \/>/' /etc/ImageMagick-6/policy.xml || true
+          # Install only essential dependencies
+          npm install --production --no-optional
+          echo "✓ Dependencies installed"
 
-      - name: Install Python dependencies
+      - name: Build site (minimal processing)
         run: |
-          if [ -f "scripts/requirements.txt" ]; then
-            pip install -r scripts/requirements.txt
-            echo "✓ Python dependencies installed"
-          else
-            echo "⚠ No Python requirements.txt found"
-          fi
-
-      - name: Install Node.js dependencies
-        run: |
-          npm install
-          echo "✓ Node.js dependencies installed"
-
-      - name: Start Ollama service (if needed)
-        run: |
-          if [ -f "scripts/start_ollama_service.py" ]; then
-            python scripts/start_ollama_service.py &
-            echo "✓ Ollama service started"
-          else
-            echo "⚠ Ollama service script not found"
-          fi
-
-      - name: Generate document previews
-        run: |
-          if [ -f "scripts/generate_previews_simple.py" ]; then
-            python scripts/generate_previews_simple.py
-            echo "✓ Document previews generated"
-          elif [ -f "scripts/generate_previews.py" ]; then
-            python scripts/generate_previews.py
-            echo "✓ Document previews generated"
-          else
-            echo "⚠ No preview generation script found"
-          fi
-
-      - name: Ensure data files exist
-        run: |
-          if [ -f "scripts/ensure_data.py" ]; then
-            python scripts/ensure_data.py
-            echo "✓ Data files ensured"
-          else
-            echo "⚠ No ensure_data.py script found"
-          fi
-
-      - name: Build Astro site
-        run: |
+          # Skip heavy processing for efficiency
+          echo "Building site with minimal processing..."
           npm run build
-          echo "✓ Astro site built successfully"
+          echo "✓ Site built"
 
-      - name: Deploy to Public Repository manually
+      - name: Deploy efficiently
         run: |
           # Configure git
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
-          # Clone the public repository
-          git clone https://x-access-token:${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
-          cd public_repo
+          # Clone public repo with minimal history
+          git clone --depth=1 https://x-access-token:${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git deploy_repo
+          cd deploy_repo
           
-          # Create or switch to main branch
-          git checkout main || git checkout --orphan main
+          # Backup essential folders only
+          [ -d "documents" ] && mv documents ../backup_docs
+          [ -d "data" ] && mv data ../backup_data
           
-          # Preserve documents and data folders
-          if [ -d "documents" ]; then
-            cp -r documents ../backup_documents
-            echo "✓ Backed up documents folder"
-          fi
+          # Remove only web files efficiently
+          rm -f *.html *.js *.css *.svg .nojekyll
+          rm -rf assets _astro
           
-          if [ -d "data" ]; then
-            cp -r data ../backup_data
-            echo "✓ Backed up data folder"
-          fi
-          
-          # Clear only web files, preserve documents and data
-          find . -maxdepth 1 -type f -name "*.html" -delete || true
-          find . -maxdepth 1 -type f -name "*.js" -delete || true
-          find . -maxdepth 1 -type f -name "*.css" -delete || true
-          find . -maxdepth 1 -type f -name "*.svg" -delete || true
-          rm -rf assets/ || true
-          rm -rf _astro/ || true
-          rm -f .nojekyll || true
-          
-          # Copy built site
+          # Copy new build
           cp -r ../dist/* .
           
-          # Restore documents and data folders
-          if [ -d "../backup_documents" ]; then
-            cp -r ../backup_documents ./documents
-            echo "✓ Restored documents folder"
-          fi
+          # Restore backups
+          [ -d "../backup_docs" ] && mv ../backup_docs ./documents
+          [ -d "../backup_data" ] && mv ../backup_data ./data
           
-          if [ -d "../backup_data" ]; then
-            cp -r ../backup_data ./data
-            echo "✓ Restored data folder"
-          fi
-          
-          # Add .nojekyll file for GitHub Pages (disable Jekyll processing)
+          # Add .nojekyll and deploy
           touch .nojekyll
-          echo "✓ Added .nojekyll file to disable Jekyll processing"
-          
-          # Commit and push
           git add .
-          git commit -m "Deploy from private repository: ${{ github.sha }}" || echo "No changes to commit"
-          git push origin main --force
+          git commit -m "Deploy: ${{ github.sha }}" || echo "No changes"
+          git push origin main
           
-          echo "✓ Deployed to public repository main branch"
+          echo "✓ Deployed efficiently"
 
-      - name: Deployment Summary
+      - name: Summary
         run: |
-          echo "🚀 Deployment completed successfully!"
-          echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
-          echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
-          echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
-          echo "🎯 Deployed to: Public repository main branch (FREE)"
+          echo "🚀 Lightweight deployment completed!"
+          echo "📊 Site: https://lonardonifabio.github.io/tech_documents/"
+          echo "💾 Disk space optimized for cost efficiency"
