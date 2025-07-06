@@ -131,7 +131,7 @@ jobs:
         with:
           personal_token: ${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}
           external_repository: lonardonifabio/tech_documents
-          publish_branch: gh-pages
+          publish_branch: main
           publish_dir: ./dist
           force_orphan: true
           user_name: 'github-actions[bot]'
@@ -144,4 +144,4 @@ jobs:
           echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
           echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
           echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
-          echo "🎯 Deployed to: Public repository gh-pages branch (FREE)"
+          echo "🎯 Deployed to: Public repository main branch (FREE)"

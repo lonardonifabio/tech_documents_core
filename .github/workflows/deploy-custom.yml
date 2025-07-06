@@ -139,8 +139,8 @@ jobs:
           git clone https://x-access-token:${{ secrets.PRIVATE_REPO_PAT || secrets.PUBLIC_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
           cd public_repo
           
-          # Create or switch to gh-pages branch
-          git checkout gh-pages || git checkout --orphan gh-pages
+          # Create or switch to main branch
+          git checkout main || git checkout --orphan main
           
           # Clear existing content
           git rm -rf . || true
@@ -155,9 +155,9 @@ jobs:
           # Commit and push
           git add .
           git commit -m "Deploy from private repository: ${{ github.sha }}" || echo "No changes to commit"
-          git push origin gh-pages --force
+          git push origin main --force
           
-          echo "✓ Deployed to public repository gh-pages branch"
+          echo "✓ Deployed to public repository main branch"
 
       - name: Deployment Summary
         run: |
@@ -165,4 +165,4 @@ jobs:
           echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
           echo "📁 Documents processed: $(find documents -name "*.pdf" | wc -l || echo '0')"
           echo "📄 Data files: $(ls -la data/ | wc -l || echo '0')"
-          echo "🎯 Deployed to: Public repository gh-pages branch (FREE)"
+          echo "🎯 Deployed to: Public repository main branch (FREE)"
