@@ -148,8 +148,9 @@ jobs:
           # Copy built site
           cp -r ../dist/* .
           
-          # Add .nojekyll file for GitHub Pages
+          # Add .nojekyll file for GitHub Pages (disable Jekyll processing)
           touch .nojekyll
+          echo "✓ Added .nojekyll file to disable Jekyll processing"
           
           # Commit and push
           git add .

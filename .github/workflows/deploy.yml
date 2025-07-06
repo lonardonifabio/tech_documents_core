@@ -121,6 +121,11 @@ jobs:
           npm run build
           echo "✓ Astro site built successfully"
 
+      - name: Add .nojekyll file to disable Jekyll
+        run: |
+          touch ./dist/.nojekyll
+          echo "✓ Added .nojekyll file to disable Jekyll processing"
+
       - name: Deploy to Public Repository GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
