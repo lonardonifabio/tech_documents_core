@@ -74,19 +74,33 @@ jobs:
 
       - name: Generate document previews
         run: |
-          echo "Generating document previews..."
+          echo "Generating document previews from PDF first pages..."
           python3 -m pip install --upgrade pip
           python3 -m pip install pillow
           echo "✓ Python dependencies installed"
           
-          python3 scripts/generate_previews_simple.py
-          echo "✓ Document previews generated"
+          # Try to use the advanced script first (real PDF previews)
+          if python3 scripts/generate_previews.py; then
+            echo "✓ Advanced PDF preview generation completed"
+          else
+            echo "⚠ Advanced preview generation failed, using simple fallback"
+            python3 scripts/generate_previews_simple.py
+          fi
           
           # Show preview generation results
           if [ -d "public/previews" ]; then
             preview_count=$(find public/previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')
             echo "📸 Generated $preview_count preview images"
             ls -la public/previews/ | head -10
+            
+            # Show a sample preview to verify it's working
+            if [ $preview_count -gt 0 ]; then
+              sample_file=$(find public/previews -name "*.jpg" | head -1)
+              if [ -f "$sample_file" ]; then
+                file_size=$(stat -c%s "$sample_file" 2>/dev/null || echo "unknown")
+                echo "📄 Sample preview: $(basename "$sample_file") (${file_size} bytes)"
+              fi
+            fi
           else
             echo "⚠ No previews directory found"
           fi

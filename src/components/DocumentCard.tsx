@@ -141,40 +141,13 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc, autoOpen = false }) =>
             onClick={() => setShowPDFModal(true)}
             title="Click to preview PDF"
           >
-            {/* Generated preview image */}
+            {/* Generated preview image - handles both JPG and SVG */}
             <img
               src={previewUrl}
               alt={`Preview of ${displayTitle}`}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                // Fallback to gradient background if image fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const fallbackDiv = target.nextElementSibling as HTMLElement;
-                if (fallbackDiv) {
-                  fallbackDiv.style.display = 'flex';
-                }
-              }}
+              style={{ backgroundColor: '#f9fafb' }}
             />
-            
-            {/* Fallback gradient preview (hidden by default) */}
-            <div 
-              className="document-preview absolute inset-0 flex items-center justify-center"
-              style={{ 
-                background: fallbackStyle.background,
-                display: 'none'
-              }}
-            >
-              <div className="relative z-10 text-center">
-                <div className="text-3xl mb-1">{fallbackStyle.icon}</div>
-                <div className="text-xs font-medium opacity-90">
-                  {truncateText(displayTitle, 20)}
-                </div>
-                <div className="text-xs opacity-70 mt-1">
-                  Click to preview
-                </div>
-              </div>
-            </div>
           </div>
           
           {/* Category badge overlay */}

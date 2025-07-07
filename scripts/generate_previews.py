@@ -7,6 +7,7 @@ Runs in GitHub Actions environment
 import os
 import json
 import sys
+import io
 from pathlib import Path
 from typing import List, Dict, Any
 import logging
@@ -21,29 +22,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def setup_preview_generator():
-    """Setup preview-generator with proper dependencies"""
+def setup_pdf_processor():
+    """Setup PDF processing with PyMuPDF (fitz)"""
     try:
-        # Try to install system dependencies first
-        logger.info("Installing system dependencies...")
-        os.system("apt-get update && apt-get install -y libmagic1 libmagic-dev")
+        logger.info("Installing PyMuPDF for PDF processing...")
+        os.system("pip install PyMuPDF")
         
-        # Try to install preview-generator with minimal dependencies
-        logger.info("Installing preview-generator...")
-        os.system("pip install --no-deps preview-generator")
-        os.system("pip install python-magic Wand")
-        
-        from preview_generator.manager import PreviewManager
-        from preview_generator.exception import UnavailablePreviewType
-        return PreviewManager, UnavailablePreviewType
+        import fitz  # PyMuPDF
+        logger.info("✓ PyMuPDF installed successfully")
+        return fitz
     except ImportError as e:
-        logger.warning(f"Failed to import preview-generator: {e}")
+        logger.warning(f"Failed to import PyMuPDF: {e}")
         logger.info("Falling back to Pillow-only mode")
-        return None, None
+        return None
     except Exception as e:
-        logger.warning(f"System dependency installation failed: {e}")
+        logger.warning(f"PyMuPDF installation failed: {e}")
         logger.info("Falling back to Pillow-only mode")
-        return None, None
+        return None
 
 def create_fallback_preview(doc: Dict[str, Any], output_path: Path) -> bool:
     """Create a fallback preview image when preview-generator fails"""
@@ -162,9 +157,8 @@ def create_fallback_preview(doc: Dict[str, Any], output_path: Path) -> bool:
         logger.error(f"Failed to create fallback preview: {e}")
         return False
 
-def generate_document_preview(doc: Dict[str, Any], documents_dir: Path, previews_dir: Path, 
-                            preview_manager, UnavailablePreviewType) -> bool:
-    """Generate preview for a single document"""
+def generate_pdf_preview(doc: Dict[str, Any], documents_dir: Path, previews_dir: Path, fitz) -> bool:
+    """Generate preview for a single PDF document using PyMuPDF"""
     try:
         doc_path = documents_dir / doc['filepath'].replace('documents/', '')
         preview_filename = f"{doc['id']}.jpg"
@@ -183,39 +177,70 @@ def generate_document_preview(doc: Dict[str, Any], documents_dir: Path, previews
             logger.warning(f"Document file not found: {doc_path}")
             return create_fallback_preview(doc, preview_path)
         
-        logger.info(f"Generating preview for: {doc['filename']}")
+        logger.info(f"Generating PDF preview for: {doc['filename']}")
         
-        # Create temporary directory for preview generation
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_preview_dir = Path(temp_dir) / "previews"
-            temp_preview_dir.mkdir(exist_ok=True)
+        try:
+            # Open PDF document
+            pdf_doc = fitz.open(str(doc_path))
             
-            try:
-                # Generate preview using preview-generator
-                preview_file_path = preview_manager.get_jpeg_preview(
-                    file_path=str(doc_path),
-                    preview_name="preview.jpg",
-                    cache_path=str(temp_preview_dir),
-                    page=0,  # First page only
-                    width=1200,
-                    height=630
-                )
-                
-                # Copy generated preview to final location
-                if Path(preview_file_path).exists():
-                    shutil.copy2(preview_file_path, preview_path)
-                    logger.info(f"Successfully generated preview: {preview_filename}")
-                    return True
-                else:
-                    logger.warning(f"Preview file not generated: {preview_file_path}")
-                    return create_fallback_preview(doc, preview_path)
-                    
-            except UnavailablePreviewType as e:
-                logger.warning(f"Preview type unavailable for {doc['filename']}: {e}")
+            if len(pdf_doc) == 0:
+                logger.warning(f"PDF has no pages: {doc['filename']}")
+                pdf_doc.close()
                 return create_fallback_preview(doc, preview_path)
-            except Exception as e:
-                logger.error(f"Error generating preview for {doc['filename']}: {e}")
-                return create_fallback_preview(doc, preview_path)
+            
+            # Get first page
+            page = pdf_doc[0]
+            
+            # Create transformation matrix for high quality rendering
+            # Scale factor for good quality (2.0 = 144 DPI)
+            mat = fitz.Matrix(2.0, 2.0)
+            
+            # Render page to pixmap
+            pix = page.get_pixmap(matrix=mat)
+            
+            # Convert to PIL Image
+            img_data = pix.tobytes("ppm")
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Resize to target dimensions (400x300 for document cards)
+            target_width, target_height = 400, 300
+            
+            # Calculate aspect ratio and resize
+            img_ratio = img.width / img.height
+            target_ratio = target_width / target_height
+            
+            if img_ratio > target_ratio:
+                # Image is wider, fit to width
+                new_width = target_width
+                new_height = int(target_width / img_ratio)
+            else:
+                # Image is taller, fit to height
+                new_height = target_height
+                new_width = int(target_height * img_ratio)
+            
+            # Resize image
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create final image with white background
+            final_img = Image.new('RGB', (target_width, target_height), 'white')
+            
+            # Center the resized image
+            x_offset = (target_width - new_width) // 2
+            y_offset = (target_height - new_height) // 2
+            final_img.paste(img, (x_offset, y_offset))
+            
+            # Save the preview
+            final_img.save(preview_path, 'JPEG', quality=85, optimize=True)
+            
+            # Clean up
+            pdf_doc.close()
+            
+            logger.info(f"Successfully generated PDF preview: {preview_filename}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error processing PDF {doc['filename']}: {e}")
+            return create_fallback_preview(doc, preview_path)
                 
     except Exception as e:
         logger.error(f"Unexpected error processing {doc.get('filename', 'unknown')}: {e}")
@@ -245,22 +270,20 @@ def main():
         
         logger.info(f"Found {len(documents)} documents to process")
         
-        # Setup preview generator
-        PreviewManager, UnavailablePreviewType = setup_preview_generator()
+        # Setup PDF processor
+        fitz = setup_pdf_processor()
         
         # Generate previews
         successful = 0
         failed = 0
         
-        if PreviewManager and UnavailablePreviewType:
-            # Use preview-generator if available
-            logger.info("Using preview-generator for PDF processing")
-            preview_manager = PreviewManager(cache_folder_path=str(previews_dir / '.cache'))
+        if fitz:
+            # Use PyMuPDF for real PDF first page extraction
+            logger.info("Using PyMuPDF for PDF first page extraction")
             
             for doc in documents:
                 try:
-                    if generate_document_preview(doc, documents_dir, previews_dir, 
-                                               preview_manager, UnavailablePreviewType):
+                    if generate_pdf_preview(doc, documents_dir, previews_dir, fitz):
                         successful += 1
                     else:
                         failed += 1
@@ -268,8 +291,8 @@ def main():
                     logger.error(f"Failed to process document {doc.get('filename', 'unknown')}: {e}")
                     failed += 1
         else:
-            # Fallback to Pillow-only mode
-            logger.info("Using Pillow-only fallback mode")
+            # Fallback to gradient previews
+            logger.info("Using gradient fallback mode")
             for doc in documents:
                 try:
                     preview_filename = f"{doc['id']}.jpg"
