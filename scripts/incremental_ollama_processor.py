@@ -122,6 +122,201 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             logger.error(f"Failed to process {filepath.name}: {e}")
             return False
     
+    def generate_preview_for_document(self, doc_id: str) -> bool:
+        """Generate preview for a specific document"""
+        try:
+            logger.info(f"Generating preview for document ID: {doc_id}")
+            
+            # Import preview generation functionality
+            from pathlib import Path
+            import json
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # Setup paths
+            base_dir = Path.cwd()
+            data_dir = base_dir / 'data'
+            public_dir = base_dir / 'public'
+            previews_dir = public_dir / 'previews'
+            
+            # Create previews directory if it doesn't exist
+            previews_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Load documents data to find the specific document
+            documents_file = data_dir / 'documents.json'
+            if not documents_file.exists():
+                logger.error("documents.json not found for preview generation")
+                return False
+            
+            with open(documents_file, 'r', encoding='utf-8') as f:
+                documents = json.load(f)
+            
+            # Find the document by ID
+            target_doc = None
+            for doc in documents:
+                if doc.get('id') == doc_id:
+                    target_doc = doc
+                    break
+            
+            if not target_doc:
+                logger.error(f"Document with ID {doc_id} not found")
+                return False
+            
+            # Generate preview using the same logic as generate_previews_simple.py
+            preview_filename = f"{doc_id}.jpg"
+            preview_path = previews_dir / preview_filename
+            
+            return self.create_document_preview(target_doc, preview_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to generate preview for {doc_id}: {e}")
+            return False
+    
+    def create_document_preview(self, doc: dict, output_path: Path) -> bool:
+        """Create a beautiful document-style preview image"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # Image dimensions optimized for document cards
+            width, height = 400, 300
+            
+            # Create white document background
+            img = Image.new('RGB', (width, height), '#ffffff')
+            draw = ImageDraw.Draw(img)
+            
+            # Try to use system fonts, fallback to default
+            try:
+                # Try different font paths for different systems
+                font_paths = [
+                    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                    '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
+                    '/System/Library/Fonts/Helvetica.ttc',
+                    'C:/Windows/Fonts/arial.ttf'
+                ]
+                
+                title_font = None
+                subtitle_font = None
+                content_font = None
+                
+                for font_path in font_paths:
+                    if os.path.exists(font_path):
+                        try:
+                            title_font = ImageFont.truetype(font_path, 16)
+                            subtitle_font = ImageFont.truetype(font_path, 12)
+                            content_font = ImageFont.truetype(font_path, 10)
+                            break
+                        except:
+                            continue
+                
+                # Fallback to default font
+                if not title_font:
+                    title_font = ImageFont.load_default()
+                    subtitle_font = ImageFont.load_default()
+                    content_font = ImageFont.load_default()
+                    
+            except Exception as e:
+                logger.warning(f"Font loading failed: {e}, using default font")
+                title_font = ImageFont.load_default()
+                subtitle_font = ImageFont.load_default()
+                content_font = ImageFont.load_default()
+            
+            # Document shadow and border
+            shadow_color = '#e5e7eb'
+            border_color = '#d1d5db'
+            
+            # Draw document shadow
+            draw.rectangle([3, 3, width-1, height-1], fill=shadow_color)
+            
+            # Draw document background
+            draw.rectangle([0, 0, width-4, height-4], fill='#ffffff', outline=border_color, width=2)
+            
+            # Header area
+            header_height = 60
+            draw.rectangle([15, 15, width-19, 15 + header_height], fill='#f9fafb', outline='#e5e7eb', width=1)
+            
+            # Document title
+            title = (doc.get('title') or doc.get('filename', 'Document'))[:45]
+            if len(title) > 42:
+                title = title[:39] + '...'
+            
+            # Draw title
+            draw.text((20, 25), title, fill='#1f2937', font=title_font)
+            
+            # Authors
+            authors = doc.get('authors', [])
+            if authors:
+                author_text = ', '.join(authors[:2])
+                if len(author_text) > 35:
+                    author_text = author_text[:32] + '...'
+                draw.text((20, 45), author_text, fill='#6b7280', font=subtitle_font)
+            
+            # Header line
+            draw.line([(15, 85), (width-19, 85)], fill='#d1d5db', width=1)
+            
+            # Content area - simulate document text
+            summary = doc.get('summary', '')
+            if summary:
+                # Break summary into lines
+                words = summary.split()
+                lines = []
+                current_line = []
+                
+                for word in words:
+                    test_line = ' '.join(current_line + [word])
+                    if len(test_line) <= 40:  # Approximate character limit per line
+                        current_line.append(word)
+                    else:
+                        if current_line:
+                            lines.append(' '.join(current_line))
+                            current_line = [word]
+                        else:
+                            lines.append(word)
+                    
+                    if len(lines) >= 4:  # Limit to 4 lines
+                        break
+                
+                if current_line and len(lines) < 4:
+                    lines.append(' '.join(current_line))
+                
+                # Draw content lines
+                y_pos = 100
+                for i, line in enumerate(lines[:4]):
+                    if i == 3 and len(line) > 37:  # Last line, add ellipsis if needed
+                        line = line[:34] + '...'
+                    draw.text((20, y_pos), line, fill='#374151', font=content_font)
+                    y_pos += 15
+            
+            # Simulate additional text lines
+            line_y_positions = [170, 185, 200, 215, 230]
+            line_widths = [width-50, width-70, width-55, width-65, width-45]
+            
+            for y_pos, line_width in zip(line_y_positions, line_widths):
+                if y_pos < height - 30:  # Don't draw too close to bottom
+                    draw.line([(20, y_pos), (line_width, y_pos)], fill='#e5e7eb', width=1)
+            
+            # Category badge
+            category = doc.get('category', 'Document')
+            badge_width = min(len(category) * 8 + 20, 80)
+            badge_x = width - badge_width - 10
+            draw.rectangle([badge_x, 8, badge_x + badge_width, 28], fill='#3b82f6', outline='#2563eb')
+            
+            # Calculate text position for centering
+            bbox = draw.textbbox((0, 0), category, font=content_font)
+            text_width = bbox[2] - bbox[0]
+            text_x = badge_x + (badge_width - text_width) // 2
+            draw.text((text_x, 13), category, fill='white', font=content_font)
+            
+            # Page number
+            draw.text((width-25, height-20), '1', fill='#9ca3af', font=content_font)
+            
+            # Save the image
+            img.save(output_path, 'JPEG', quality=85, optimize=True)
+            logger.info(f"Created preview for {doc.get('filename', 'unknown')}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to create preview: {e}")
+            return False
+
     def commit_to_public_repo(self, filename: str) -> bool:
         """Commit updated JSON files to public repository"""
         try:
@@ -138,24 +333,60 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             shutil.copy2("data/documents.json", "public_repo/data/documents.json")
             shutil.copy2("data/processed_files.json", "public_repo/data/processed_files.json")
             
+            # Generate preview for the newly processed document
+            # Find the document ID from the filename
+            try:
+                with open("data/documents.json", 'r', encoding='utf-8') as f:
+                    documents = json.load(f)
+                
+                doc_id = None
+                for doc in documents:
+                    if doc.get('filename') == filename:
+                        doc_id = doc.get('id')
+                        break
+                
+                if doc_id:
+                    logger.info(f"Generating preview for document: {filename} (ID: {doc_id})")
+                    preview_success = self.generate_preview_for_document(doc_id)
+                    if preview_success:
+                        logger.info(f"✅ Preview generated for {filename}")
+                        # Copy the generated preview to public repo
+                        preview_src = Path("public/previews") / f"{doc_id}.jpg"
+                        preview_dst = public_repo_path / "public" / "previews" / f"{doc_id}.jpg"
+                        preview_dst.parent.mkdir(parents=True, exist_ok=True)
+                        if preview_src.exists():
+                            shutil.copy2(preview_src, preview_dst)
+                            logger.info(f"✅ Preview copied to public repo for {filename}")
+                    else:
+                        logger.warning(f"⚠️ Failed to generate preview for {filename}")
+                else:
+                    logger.warning(f"Could not find document ID for {filename}")
+                    
+            except Exception as e:
+                logger.warning(f"Preview generation failed for {filename}: {e}")
+            
             # Change to public repo directory and commit
             original_dir = os.getcwd()
             os.chdir("public_repo")
             
             try:
-                # Check if there are changes
-                result = subprocess.run(['git', 'diff', '--quiet', 'data/'], capture_output=True)
-                if result.returncode == 0:
+                # Check if there are changes in data or public directories
+                result_data = subprocess.run(['git', 'diff', '--quiet', 'data/'], capture_output=True)
+                result_public = subprocess.run(['git', 'diff', '--quiet', 'public/'], capture_output=True)
+                
+                if result_data.returncode == 0 and result_public.returncode == 0:
                     logger.info("No changes to commit for public repo")
                     return True
                 
-                # Add and commit changes
+                # Add changes from both data and public directories
                 subprocess.run(['git', 'add', 'data/'], check=True, capture_output=True)
-                commit_message = f"Process document: {filename} - AI analysis complete"
+                subprocess.run(['git', 'add', 'public/'], check=True, capture_output=True)
+                
+                commit_message = f"Process document: {filename} - AI analysis and preview complete"
                 subprocess.run(['git', 'commit', '-m', commit_message], check=True, capture_output=True)
                 subprocess.run(['git', 'push'], check=True, capture_output=True)
                 
-                logger.info(f"✅ Committed {filename} analysis to public repository")
+                logger.info(f"✅ Committed {filename} analysis and preview to public repository")
                 return True
                 
             finally:
