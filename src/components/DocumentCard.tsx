@@ -111,19 +111,58 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc, autoOpen = false }) =>
   // Share document on LinkedIn
   const shareOnLinkedIn = (doc: Document) => {
     const baseUrl = 'https://lonardonifabio.github.io/tech_documents';
-    const documentUrl = `${baseUrl}/?doc=${doc.id}`;
-    const title = encodeURIComponent(doc.title || doc.filename);
-    const summary = encodeURIComponent(
-      doc.summary.length > 200 
-        ? doc.summary.substring(0, 197) + '...' 
-        : doc.summary
-    );
+    const documentUrl = `${baseUrl}/document/${doc.id}`;
+    const title = doc.title || doc.filename;
     
-    // LinkedIn sharing URL
-    const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&title=${title}&summary=${summary}`;
+    // Extract first sentence from summary
+    const getFirstSentence = (text: string): string => {
+      if (!text) return '';
+      // Find first sentence ending with period, exclamation, or question mark
+      const match = text.match(/^[^.!?]*[.!?]/);
+      if (match) {
+        return match[0].trim();
+      }
+      // If no sentence ending found, take first 100 characters
+      return text.length > 100 ? text.substring(0, 97) + '...' : text;
+    };
     
-    // Open LinkedIn sharing dialog
-    window.open(linkedInUrl, 'linkedin-share', 'width=600,height=400,scrollbars=yes,resizable=yes');
+    const firstSentence = getFirstSentence(doc.summary);
+    
+    // Create LinkedIn post content
+    let post = `🚀 Sharing an insightful AI/Data Science resource!\n\n`;
+    post += `**${title}**\n`;
+    if (firstSentence) {
+      post += `${firstSentence}\n\n`;
+    }
+    
+    // Add key concepts if available
+    if (doc.key_concepts && doc.key_concepts.length > 0) {
+      post += `💡 Key concepts: ${doc.key_concepts.slice(0, 2).join(', ')}\n\n`;
+    }
+    
+    post += `🤖 Explore with AI: ${documentUrl}\n\n`;
+    post += `📚 Discover 1100+ AI & Data Science Documents:\n`;
+    post += `🌐 https://lonardonifabio.github.io/tech_documents/\n\n`;
+    
+    // Add hashtags
+    const keywords = doc.keywords.slice(0, 5);
+    keywords.forEach(keyword => {
+      post += `#${keyword.replace(/\s+/g, '')} `;
+    });
+    post += '#ArtificialIntelligence #DataScience #MachineLearning';
+    
+    const encodedContent = encodeURIComponent(post);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // For mobile, use the text parameter which works better
+      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
+      window.open(linkedInUrl, '_blank');
+    } else {
+      // For desktop, use the traditional approach
+      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
+      window.open(linkedInUrl, 'linkedin-share', 'width=600,height=600,scrollbars=yes,resizable=yes');
+    }
   };
 
   const displaySummary = showFullSummary ? doc.summary : truncateSummary(doc.summary);
@@ -215,18 +254,25 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc, autoOpen = false }) =>
               <span className="text-xs text-gray-500">
                 {formatFileSize(doc.file_size)}
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <button
                   onClick={() => setShowPDFModal(true)}
-                  className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-medium hover:bg-green-700 transition-colors duration-200"
+                  className="bg-green-600 text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-green-700 transition-colors duration-200"
                 >
                   Preview
+                </button>
+                <button
+                  onClick={() => shareOnLinkedIn(doc)}
+                  className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-blue-700 transition-colors duration-200"
+                  title="Share on LinkedIn"
+                >
+                  Share
                 </button>
                 <a
                   href={`https://raw.githubusercontent.com/lonardonifabio/tech_documents/main/${doc.filepath}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium hover:bg-blue-700 transition-colors duration-200"
+                  className="bg-gray-600 text-white px-2 py-1 rounded-full text-xs font-medium hover:bg-gray-700 transition-colors duration-200"
                 >
                   Download
                 </a>

@@ -10,7 +10,11 @@
     "preview": "astro preview",
     "astro": "astro",
     "update-docs": "python scripts/ensure_data.py",
-    "process-docs": "python scripts/ensure_data.py"
+    "process-docs": "python scripts/ensure_data.py",
+    "sync-data": "python scripts/sync_data.py",
+    "sync-data-force": "python scripts/sync_data.py --sync",
+    "validate-data": "python scripts/sync_data.py --validate",
+    "data-status": "python scripts/sync_data.py --status"
   },
   "dependencies": {
     "@astrojs/react": "^3.0.9",

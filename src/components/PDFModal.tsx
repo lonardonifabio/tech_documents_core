@@ -85,8 +85,25 @@ const PDFModal: React.FC<PDFModalProps> = ({ doc, isOpen, onClose }) => {
       const title = doc.title || doc.filename;
       const documentUrl = `https://lonardonifabio.github.io/tech_documents/document/${doc.id}`;
       
+      // Extract first sentence from summary
+      const getFirstSentence = (text: string): string => {
+        if (!text) return '';
+        // Find first sentence ending with period, exclamation, or question mark
+        const match = text.match(/^[^.!?]*[.!?]/);
+        if (match) {
+          return match[0].trim();
+        }
+        // If no sentence ending found, take first 100 characters
+        return text.length > 100 ? text.substring(0, 97) + '...' : text;
+      };
+      
+      const firstSentence = getFirstSentence(doc.summary);
+      
       let post = `🚀 Sharing an insightful AI/Data Science resource!\n\n`;
-      post += `📄 **${title}**\n\n`;
+      post += `**${title}**\n`;
+      if (firstSentence) {
+        post += `${firstSentence}\n\n`;
+      }
       
       if (doc.key_concepts && doc.key_concepts.length > 0) {
         post += `💡 Key concepts: ${doc.key_concepts.slice(0, 2).join(', ')}\n\n`;
@@ -103,13 +120,30 @@ const PDFModal: React.FC<PDFModalProps> = ({ doc, isOpen, onClose }) => {
       post += '#ArtificialIntelligence #DataScience #MachineLearning';
       
       const encodedContent = encodeURIComponent(post);
-      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
-      
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
       if (isMobile) {
+        // For mobile, try native sharing first, then fallback to LinkedIn
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: `${title}`,
+              text: post,
+              url: documentUrl
+            });
+            return;
+          } catch (shareError) {
+            // If native sharing fails, continue to LinkedIn sharing
+            console.log('Native sharing failed, using LinkedIn:', shareError);
+          }
+        }
+        
+        // LinkedIn sharing for mobile
+        const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
         window.open(linkedInUrl, '_blank');
       } else {
+        // Desktop LinkedIn sharing
+        const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
         window.open(linkedInUrl, '_blank', 'width=600,height=600');
       }
     } catch (error) {

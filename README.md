@@ -94,6 +94,30 @@ python scripts/incremental_ollama_processor.py --force
 OLLAMA_MODEL=gemma3:4b python scripts/incremental_ollama_processor.py
 ```
 
+### Data Synchronization
+
+Keep your local development environment synchronized with the public repository (source of truth):
+
+```bash
+# Sync data from public repository (default behavior)
+npm run sync-data
+
+# Force sync data (overwrite local with public repo data)
+npm run sync-data-force
+
+# Validate local data files
+npm run validate-data
+
+# Show current data status
+npm run data-status
+```
+
+**Data Flow Architecture:**
+- **Public Repository** = Source of Truth for processed data
+- **Private Repository** = Application code and processing logic
+- **Smart Synchronization** = Timestamp-based protection against data regression
+- **Cost Optimization** = Minimal redundant processing and efficient workflows
+
 ## 🔄 Automated Workflows
 
 ### Document Processing Workflow
@@ -104,7 +128,12 @@ Located in `.github/workflows/process-documents.yml`, this workflow:
    - Repository dispatch from public repo when documents are updated
    - Manual dispatch
 
-2. **Process**:
+2. **Smart Data Synchronization**:
+   - Always starts with latest data from public repository (source of truth)
+   - Validates data integrity before processing
+   - Maintains processing history and state
+
+3. **Process**:
    - Fetches documents and data from public repository
    - Sets up Python and Ollama
    - Pulls Gemma3:4b model
@@ -112,7 +141,7 @@ Located in `.github/workflows/process-documents.yml`, this workflow:
    - Updates `documents.json` and `processed_files.json`
    - Pushes updated data back to public repository
 
-3. **AI Analysis**: Each document is analyzed for:
+4. **AI Analysis**: Each document is analyzed for:
    - Title and authors extraction
    - Content summarization (600+ characters)
    - Category classification
@@ -121,14 +150,28 @@ Located in `.github/workflows/process-documents.yml`, this workflow:
    - Business context analysis
    - Q&A generation
 
-### Deployment Workflow
+### Deployment Workflow (Data-Safe)
 
 Located in `.github/workflows/deploy.yml`, this workflow:
 
-1. **Fetches** documents and data from public repository
-2. **Generates** PDF previews
-3. **Builds** the Astro application
-4. **Deploys** to GitHub Pages
+1. **Smart Data Fetching** with timestamp protection:
+   - Compares timestamps between public and local data
+   - Only overwrites local data if public data is newer
+   - Prevents data regression and loss of newer processed data
+
+2. **Data Validation**:
+   - Validates JSON integrity before building
+   - Creates fallback data if corruption is detected
+
+3. **Build Process**:
+   - Generates PDF previews
+   - Builds the Astro application with validated data
+   - Deploys to GitHub Pages
+
+4. **Cost Optimization**:
+   - Efficient data synchronization
+   - Minimal redundant processing
+   - Smart caching and validation
 
 ## 📁 Project Structure
 

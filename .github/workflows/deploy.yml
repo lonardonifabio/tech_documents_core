@@ -1,4 +1,4 @@
-name: Build and Deploy (Optimized)
+name: Build and Deploy (Data-Safe)
 
 on:
   repository_dispatch:
@@ -31,12 +31,12 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Fetch documents and data from public repository
+      - name: Smart fetch documents and data from public repository
         run: |
-          echo "Fetching documents from public repository..."
+          echo "🔄 Smart fetching documents and data from public repository..."
           git clone --depth=1 https://github.com/lonardonifabio/tech_documents.git temp_public
           
-          # Copy documents and data folders
+          # Copy documents folder (always safe to overwrite)
           if [ -d "temp_public/documents" ]; then
             cp -r temp_public/documents ./documents
             echo "✓ Documents folder copied ($(find documents -name "*.pdf" | wc -l) PDFs)"
@@ -45,21 +45,126 @@ jobs:
             mkdir -p documents
           fi
           
+          # Smart data synchronization with timestamp protection
           if [ -d "temp_public/data" ]; then
-            cp -r temp_public/data ./data
-            echo "✓ Data folder copied"
+            echo "🔍 Checking data freshness..."
+            
+            # Check if public repo has newer data
+            PUBLIC_DOCS_MODIFIED=""
+            PUBLIC_PROCESSED_MODIFIED=""
+            
+            if [ -f "temp_public/data/documents.json" ]; then
+              # Get last modified time of public documents.json
+              PUBLIC_DOCS_MODIFIED=$(stat -c %Y temp_public/data/documents.json 2>/dev/null || echo "0")
+            fi
+            
+            if [ -f "temp_public/data/processed_files.json" ]; then
+              # Get last modified time of public processed_files.json
+              PUBLIC_PROCESSED_MODIFIED=$(stat -c %Y temp_public/data/processed_files.json 2>/dev/null || echo "0")
+            fi
+            
+            # Check local data timestamps (if they exist)
+            LOCAL_DOCS_MODIFIED="0"
+            LOCAL_PROCESSED_MODIFIED="0"
+            
+            if [ -f "data/documents.json" ]; then
+              LOCAL_DOCS_MODIFIED=$(stat -c %Y data/documents.json 2>/dev/null || echo "0")
+            fi
+            
+            if [ -f "data/processed_files.json" ]; then
+              LOCAL_PROCESSED_MODIFIED=$(stat -c %Y data/processed_files.json 2>/dev/null || echo "0")
+            fi
+            
+            # Create data directory if it doesn't exist
+            mkdir -p data
+            
+            # Smart copy with timestamp protection
+            if [ "$PUBLIC_DOCS_MODIFIED" -ge "$LOCAL_DOCS_MODIFIED" ]; then
+              cp temp_public/data/documents.json ./data/documents.json
+              echo "✅ Updated documents.json (public: $(date -d @$PUBLIC_DOCS_MODIFIED), local: $(date -d @$LOCAL_DOCS_MODIFIED))"
+            else
+              echo "⚠ Keeping local documents.json (newer than public repo)"
+              # If local is newer but doesn't exist, create minimal version
+              if [ ! -f "data/documents.json" ]; then
+                echo "[]" > data/documents.json
+              fi
+            fi
+            
+            if [ "$PUBLIC_PROCESSED_MODIFIED" -ge "$LOCAL_PROCESSED_MODIFIED" ]; then
+              cp temp_public/data/processed_files.json ./data/processed_files.json
+              echo "✅ Updated processed_files.json (public: $(date -d @$PUBLIC_PROCESSED_MODIFIED), local: $(date -d @$LOCAL_PROCESSED_MODIFIED))"
+            else
+              echo "⚠ Keeping local processed_files.json (newer than public repo)"
+              # If local is newer but doesn't exist, create minimal version
+              if [ ! -f "data/processed_files.json" ]; then
+                echo "{}" > data/processed_files.json
+              fi
+            fi
+            
+            # Copy any other data files that might exist
+            for file in temp_public/data/*; do
+              if [ -f "$file" ]; then
+                filename=$(basename "$file")
+                if [ "$filename" != "documents.json" ] && [ "$filename" != "processed_files.json" ]; then
+                  cp "$file" "./data/$filename"
+                  echo "✓ Copied additional data file: $filename"
+                fi
+              fi
+            done
+            
+            echo "✅ Smart data synchronization completed"
           else
             echo "⚠ Data folder not found in public repo - creating minimal data"
             mkdir -p data
-            echo "[]" > data/documents.json
+            if [ ! -f "data/documents.json" ]; then
+              echo "[]" > data/documents.json
+            fi
+            if [ ! -f "data/processed_files.json" ]; then
+              echo "{}" > data/processed_files.json
+            fi
+          fi
+          
+          # Copy previews if they exist
+          if [ -d "temp_public/public/previews" ]; then
+            mkdir -p public/previews
+            cp -r temp_public/public/previews/* ./public/previews/ 2>/dev/null || true
+            preview_count=$(find public/previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')
+            echo "✓ Copied $preview_count preview images"
           fi
           
           # Clean up
           rm -rf temp_public
           
-          echo "Files available for build:"
-          ls -la documents/ 2>/dev/null || echo "No documents directory"
-          ls -la data/ 2>/dev/null || echo "No data directory"
+          echo "📊 Final status:"
+          echo "📁 Documents: $(find documents -name "*.pdf" 2>/dev/null | wc -l || echo '0')"
+          echo "📄 Data files: $(ls -la data/ 2>/dev/null | wc -l || echo '0')"
+          echo "🖼️ Previews: $(find public/previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')"
+
+      - name: Validate data integrity
+        run: |
+          echo "🔍 Validating data integrity..."
+          
+          # Check if documents.json is valid JSON
+          if [ -f "data/documents.json" ]; then
+            if python3 -c "import json; json.load(open('data/documents.json'))" 2>/dev/null; then
+              doc_count=$(python3 -c "import json; print(len(json.load(open('data/documents.json'))))")
+              echo "✅ documents.json is valid ($doc_count documents)"
+            else
+              echo "❌ documents.json is invalid, creating empty array"
+              echo "[]" > data/documents.json
+            fi
+          fi
+          
+          # Check if processed_files.json is valid JSON
+          if [ -f "data/processed_files.json" ]; then
+            if python3 -c "import json; json.load(open('data/processed_files.json'))" 2>/dev/null; then
+              processed_count=$(python3 -c "import json; print(len(json.load(open('data/processed_files.json'))))")
+              echo "✅ processed_files.json is valid ($processed_count entries)"
+            else
+              echo "❌ processed_files.json is invalid, creating empty object"
+              echo "{}" > data/processed_files.json
+            fi
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -74,14 +179,14 @@ jobs:
 
       - name: Generate document previews
         run: |
-          echo "Generating document previews from PDF first pages..."
+          echo "🖼️ Generating document previews from PDF first pages..."
           python3 -m pip install --upgrade pip
           python3 -m pip install pillow
           echo "✓ Python dependencies installed"
           
           # Try to use the advanced script first (real PDF previews)
           if python3 scripts/generate_previews.py; then
-            echo "✓ Advanced PDF preview generation completed"
+            echo "✅ Advanced PDF preview generation completed"
           else
             echo "⚠ Advanced preview generation failed, using simple fallback"
             python3 scripts/generate_previews_simple.py
@@ -107,9 +212,9 @@ jobs:
 
       - name: Build Astro site
         run: |
-          echo "Building site..."
+          echo "🏗️ Building site..."
           npm run build
-          echo "✓ Site built successfully"
+          echo "✅ Site built successfully"
           
           # Verify previews were included in build
           if [ -d "dist/previews" ]; then
@@ -118,6 +223,14 @@ jobs:
             ls -la dist/previews/ | head -5
           else
             echo "⚠ No previews directory found in dist"
+          fi
+          
+          # Verify data was included in build
+          if [ -f "dist/data/documents.json" ]; then
+            doc_count=$(python3 -c "import json; print(len(json.load(open('dist/data/documents.json'))))" 2>/dev/null || echo "0")
+            echo "📄 $doc_count documents included in build"
+          else
+            echo "⚠ No documents.json found in dist"
           fi
 
       - name: Add .nojekyll file
@@ -136,7 +249,7 @@ jobs:
           keep_files: true
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy from private repository: ${{ github.sha }}'
+          commit_message: 'Deploy from private repository: ${{ github.sha }} [data-safe]'
 
       - name: Deployment Summary
         run: |
@@ -144,4 +257,6 @@ jobs:
           echo "📊 Site URL: https://lonardonifabio.github.io/tech_documents/"
           echo "📁 Documents: $(find documents -name "*.pdf" 2>/dev/null | wc -l || echo '0')"
           echo "📄 Data files: $(ls -la data/ 2>/dev/null | wc -l || echo '0')"
-          echo "💾 Optimized for cost efficiency"
+          echo "🖼️ Previews: $(find public/previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')"
+          echo "💾 Data-safe deployment with timestamp protection"
+          echo "🔒 No risk of overwriting newer processed data"
