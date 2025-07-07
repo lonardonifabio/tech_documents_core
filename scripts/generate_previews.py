@@ -247,26 +247,41 @@ def main():
         
         # Setup preview generator
         PreviewManager, UnavailablePreviewType = setup_preview_generator()
-        if not PreviewManager:
-            logger.error("Failed to setup preview-generator")
-            sys.exit(1)
-        
-        preview_manager = PreviewManager(cache_folder_path=str(previews_dir / '.cache'))
         
         # Generate previews
         successful = 0
         failed = 0
         
-        for doc in documents:
-            try:
-                if generate_document_preview(doc, documents_dir, previews_dir, 
-                                           preview_manager, UnavailablePreviewType):
-                    successful += 1
-                else:
+        if PreviewManager and UnavailablePreviewType:
+            # Use preview-generator if available
+            logger.info("Using preview-generator for PDF processing")
+            preview_manager = PreviewManager(cache_folder_path=str(previews_dir / '.cache'))
+            
+            for doc in documents:
+                try:
+                    if generate_document_preview(doc, documents_dir, previews_dir, 
+                                               preview_manager, UnavailablePreviewType):
+                        successful += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    logger.error(f"Failed to process document {doc.get('filename', 'unknown')}: {e}")
                     failed += 1
-            except Exception as e:
-                logger.error(f"Failed to process document {doc.get('filename', 'unknown')}: {e}")
-                failed += 1
+        else:
+            # Fallback to Pillow-only mode
+            logger.info("Using Pillow-only fallback mode")
+            for doc in documents:
+                try:
+                    preview_filename = f"{doc['id']}.jpg"
+                    preview_path = previews_dir / preview_filename
+                    
+                    if create_fallback_preview(doc, preview_path):
+                        successful += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    logger.error(f"Failed to process document {doc.get('filename', 'unknown')}: {e}")
+                    failed += 1
         
         logger.info(f"Preview generation completed: {successful} successful, {failed} failed")
         
