@@ -96,6 +96,15 @@ jobs:
           echo "Building site..."
           npm run build
           echo "✓ Site built successfully"
+          
+          # Verify previews were included in build
+          if [ -d "dist/previews" ]; then
+            preview_count=$(find dist/previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')
+            echo "📸 $preview_count preview images included in build"
+            ls -la dist/previews/ | head -5
+          else
+            echo "⚠ No previews directory found in dist"
+          fi
 
       - name: Add .nojekyll file
         run: |
