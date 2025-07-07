@@ -81,19 +81,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r scripts/requirements.txt
 
-    - name: Process documents incrementally
-      env:
-        OLLAMA_HOST: "127.0.0.1:11434"
-        FORCE_REPROCESS: ${{ github.event.inputs.force_reprocess }}
+    - name: Setup public repository for incremental commits
       run: |
-        echo "🔄 Starting document processing..."
-        python scripts/incremental_ollama_processor.py
+        echo "Setting up public repository for incremental commits..."
         
-    - name: Push updated data back to public repository
-      run: |
-        echo "Pushing updated data back to public repository..."
-        
-        # Clone public repo for pushing updates
+        # Clone public repo for incremental updates
         git clone https://${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
         cd public_repo
         
@@ -101,18 +93,15 @@ jobs:
         git config user.name "GitHub Action"
         git config user.email "action@github.com"
         
-        # Copy updated data files
-        cp -r ../data/* ./data/ 2>/dev/null || echo "No data to copy"
-        
-        # Check if there are changes
-        if git diff --quiet; then
-          echo "No changes to commit"
-        else
-          git add data/
-          git commit -m "Update document analysis data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          git push
-          echo "✅ Successfully pushed updated data to public repository"
-        fi
+        echo "✅ Public repository ready for incremental commits"
+
+    - name: Process documents incrementally with commits
+      env:
+        OLLAMA_HOST: "127.0.0.1:11434"
+        FORCE_REPROCESS: ${{ github.event.inputs.force_reprocess }}
+      run: |
+        echo "🔄 Starting document processing with incremental commits..."
+        python scripts/incremental_ollama_processor.py
         
     - name: Create processing summary
       run: |

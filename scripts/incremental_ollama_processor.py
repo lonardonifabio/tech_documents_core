@@ -79,7 +79,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             return False
     
     def process_single_document_with_commit(self, filepath: Path, processed_files: Dict, existing_documents: List[Dict]) -> bool:
-        """Process a single document and save the result"""
+        """Process a single document and commit the result to public repository"""
         try:
             logger.info(f"Processing document: {filepath.name}")
             
@@ -100,17 +100,74 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             current_hash = self.get_file_hash(filepath)
             processed_files[file_path_str] = current_hash
             
-            # Save updated data
+            # Save updated data locally
             self.save_documents(existing_documents)
             self.save_processed_files(processed_files)
             
             self.processed_count += 1
             
-            logger.info(f"Successfully processed: {filepath.name} ({self.processed_count} processed)")
-            return True
+            # Commit to public repository after each document
+            success = self.commit_to_public_repo(filepath.name)
+            
+            if success:
+                logger.info(f"Successfully processed and committed: {filepath.name} ({self.processed_count} processed)")
+            else:
+                logger.warning(f"Processed {filepath.name} but failed to commit to public repo")
+            
+            return success
             
         except Exception as e:
             logger.error(f"Failed to process {filepath.name}: {e}")
+            return False
+    
+    def commit_to_public_repo(self, filename: str) -> bool:
+        """Commit updated JSON files to public repository"""
+        try:
+            from pathlib import Path
+            import os
+            
+            public_repo_path = Path("public_repo")
+            if not public_repo_path.exists():
+                logger.error("Public repository not found. Make sure workflow setup step completed.")
+                return False
+            
+            # Copy updated data files to public repo
+            import shutil
+            shutil.copy2("data/documents.json", "public_repo/data/documents.json")
+            shutil.copy2("data/processed_files.json", "public_repo/data/processed_files.json")
+            
+            # Change to public repo directory and commit
+            original_dir = os.getcwd()
+            os.chdir("public_repo")
+            
+            try:
+                # Check if there are changes
+                result = subprocess.run(['git', 'diff', '--quiet', 'data/'], capture_output=True)
+                if result.returncode == 0:
+                    logger.info("No changes to commit for public repo")
+                    return True
+                
+                # Add and commit changes
+                subprocess.run(['git', 'add', 'data/'], check=True, capture_output=True)
+                commit_message = f"Process document: {filename} - AI analysis complete"
+                subprocess.run(['git', 'commit', '-m', commit_message], check=True, capture_output=True)
+                subprocess.run(['git', 'push'], check=True, capture_output=True)
+                
+                logger.info(f"✅ Committed {filename} analysis to public repository")
+                return True
+                
+            finally:
+                os.chdir(original_dir)
+                
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Git operation failed for public repo: {e}")
+            if e.stdout:
+                logger.error(f"Git stdout: {e.stdout.decode()}")
+            if e.stderr:
+                logger.error(f"Git stderr: {e.stderr.decode()}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to commit to public repo: {e}")
             return False
     
     def scan_and_process_incrementally(self, force_reprocess: bool = False) -> bool:
