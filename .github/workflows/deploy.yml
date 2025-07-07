@@ -72,15 +72,14 @@ jobs:
           npm ci --prefer-offline --no-audit
           echo "✓ Dependencies installed"
 
-      - name: Setup Python and generate document previews
+      - name: Generate document previews
         run: |
-          echo "Setting up Python for preview generation..."
+          echo "Generating document previews..."
           python3 -m pip install --upgrade pip
-          python3 -m pip install preview-generator pillow
+          python3 -m pip install pillow
           echo "✓ Python dependencies installed"
           
-          echo "Generating document previews..."
-          python3 scripts/generate_previews.py
+          python3 scripts/generate_previews_simple.py
           echo "✓ Document previews generated"
           
           # Show preview generation results

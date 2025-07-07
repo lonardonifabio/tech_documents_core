@@ -24,20 +24,26 @@ logger = logging.getLogger(__name__)
 def setup_preview_generator():
     """Setup preview-generator with proper dependencies"""
     try:
+        # Try to install system dependencies first
+        logger.info("Installing system dependencies...")
+        os.system("apt-get update && apt-get install -y libmagic1 libmagic-dev")
+        
+        # Try to install preview-generator with minimal dependencies
+        logger.info("Installing preview-generator...")
+        os.system("pip install --no-deps preview-generator")
+        os.system("pip install python-magic Wand")
+        
         from preview_generator.manager import PreviewManager
         from preview_generator.exception import UnavailablePreviewType
         return PreviewManager, UnavailablePreviewType
     except ImportError as e:
-        logger.error(f"Failed to import preview-generator: {e}")
-        logger.info("Installing preview-generator with basic dependencies...")
-        os.system("pip install preview-generator")
-        try:
-            from preview_generator.manager import PreviewManager
-            from preview_generator.exception import UnavailablePreviewType
-            return PreviewManager, UnavailablePreviewType
-        except ImportError as e:
-            logger.error(f"Still failed to import after installation: {e}")
-            return None, None
+        logger.warning(f"Failed to import preview-generator: {e}")
+        logger.info("Falling back to Pillow-only mode")
+        return None, None
+    except Exception as e:
+        logger.warning(f"System dependency installation failed: {e}")
+        logger.info("Falling back to Pillow-only mode")
+        return None, None
 
 def create_fallback_preview(doc: Dict[str, Any], output_path: Path) -> bool:
     """Create a fallback preview image when preview-generator fails"""
