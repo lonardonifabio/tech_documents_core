@@ -95,10 +95,12 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             # Sort by filename for consistency
             existing_documents.sort(key=lambda x: x['filename'])
             
-            # Update processed files tracking
-            file_path_str = str(filepath)
+            # Update processed files tracking with consistent public repo path format
+            # Convert private repo path to public repo path format for consistency
+            filename = filepath.name
+            public_repo_path = f"/home/runner/work/tech_documents/tech_documents/documents/{filename}"
             current_hash = self.get_file_hash(filepath)
-            processed_files[file_path_str] = current_hash
+            processed_files[public_repo_path] = current_hash
             
             # Save updated data locally
             self.save_documents(existing_documents)
@@ -197,20 +199,23 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             if not filepath.is_file():
                 continue
             
-            file_path_str = str(filepath)
+            # Use consistent public repo path format for checking
+            filename = filepath.name
+            public_repo_path = f"/home/runner/work/tech_documents/tech_documents/documents/{filename}"
             current_hash = self.get_file_hash(filepath)
             
-            # Check if file needs processing
+            # Check if file needs processing using consistent path format
             needs_processing = (
                 force_reprocess or 
-                file_path_str not in processed_files or 
-                processed_files[file_path_str] != current_hash
+                public_repo_path not in processed_files or 
+                processed_files[public_repo_path] != current_hash
             )
             
             if needs_processing:
                 files_to_process.append(filepath)
+                logger.info(f"File needs processing: {filepath.name} (path: {public_repo_path})")
             else:
-                logger.info(f"Skipping already processed file: {filepath.name}")
+                logger.info(f"Skipping already processed file: {filepath.name} (path: {public_repo_path})")
         
         logger.info(f"Found {len(files_to_process)} files to process out of {total_files} total files")
         
