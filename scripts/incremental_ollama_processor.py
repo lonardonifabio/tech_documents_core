@@ -9,14 +9,34 @@ import json
 import hashlib
 import logging
 import subprocess
+import io
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 from fixed_ollama_processor import FixedOllamaDocumentProcessor
+from PIL import Image
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def setup_pdf_processor():
+    """Setup PDF processing with PyMuPDF (fitz)"""
+    try:
+        logger.info("Installing PyMuPDF for PDF processing...")
+        os.system("pip install PyMuPDF")
+        
+        import fitz  # PyMuPDF
+        logger.info("✓ PyMuPDF installed successfully")
+        return fitz
+    except ImportError as e:
+        logger.warning(f"Failed to import PyMuPDF: {e}")
+        logger.info("Falling back to Pillow-only mode")
+        return None
+    except Exception as e:
+        logger.warning(f"PyMuPDF installation failed: {e}")
+        logger.info("Falling back to Pillow-only mode")
+        return None
 
 class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
     """Enhanced processor for incremental processing with Git commits"""
@@ -24,6 +44,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
     def __init__(self, model_name: str = "gemma3:4b"):
         super().__init__(model_name)
         self.processed_count = 0
+        self.fitz = setup_pdf_processor()  # Setup PDF processor
         
         # Inherit the Ollama host configuration from parent class
         logger.info(f"Incremental processor using Ollama host: {self.ollama_host}")
@@ -172,149 +193,184 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             return False
     
     def create_document_preview(self, doc: dict, output_path: Path) -> bool:
-        """Create a beautiful document-style preview image"""
+        """Generate preview for a single PDF document using PyMuPDF or fallback"""
+        try:
+            # Try PDF-based preview first if PyMuPDF is available
+            if self.fitz and self.generate_pdf_preview(doc, output_path):
+                return True
+            
+            # Fallback to gradient-based preview
+            return self.create_fallback_preview(doc, output_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to create preview: {e}")
+            return False
+    
+    def generate_pdf_preview(self, doc: dict, output_path: Path) -> bool:
+        """Generate preview from actual PDF first page using PyMuPDF"""
+        try:
+            # Find the document path
+            doc_path = None
+            if 'filepath' in doc:
+                doc_path = Path(doc['filepath'].replace('documents/', ''))
+                if not doc_path.is_absolute():
+                    doc_path = self.documents_dir / doc_path.name
+            else:
+                # Try to find by filename
+                doc_path = self.documents_dir / doc['filename']
+            
+            if not doc_path or not doc_path.exists():
+                logger.warning(f"Document file not found: {doc_path}")
+                return False
+            
+            logger.info(f"Generating PDF preview for: {doc['filename']}")
+            
+            # Open PDF document
+            pdf_doc = self.fitz.open(str(doc_path))
+            
+            if len(pdf_doc) == 0:
+                logger.warning(f"PDF has no pages: {doc['filename']}")
+                pdf_doc.close()
+                return False
+            
+            # Get first page
+            page = pdf_doc[0]
+            
+            # Create transformation matrix for high quality rendering
+            # Scale factor for good quality (2.0 = 144 DPI)
+            mat = self.fitz.Matrix(2.0, 2.0)
+            
+            # Render page to pixmap
+            pix = page.get_pixmap(matrix=mat)
+            
+            # Convert to PIL Image
+            img_data = pix.tobytes("ppm")
+            img = Image.open(io.BytesIO(img_data))
+            
+            # Resize to target dimensions (400x300 for document cards)
+            target_width, target_height = 400, 300
+            
+            # Calculate aspect ratio and resize
+            img_ratio = img.width / img.height
+            target_ratio = target_width / target_height
+            
+            if img_ratio > target_ratio:
+                # Image is wider, fit to width
+                new_width = target_width
+                new_height = int(target_width / img_ratio)
+            else:
+                # Image is taller, fit to height
+                new_height = target_height
+                new_width = int(target_height * img_ratio)
+            
+            # Resize image
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create final image with white background
+            final_img = Image.new('RGB', (target_width, target_height), 'white')
+            
+            # Center the resized image
+            x_offset = (target_width - new_width) // 2
+            y_offset = (target_height - new_height) // 2
+            final_img.paste(img, (x_offset, y_offset))
+            
+            # Save the preview
+            final_img.save(output_path, 'JPEG', quality=85, optimize=True)
+            
+            # Clean up
+            pdf_doc.close()
+            
+            logger.info(f"Successfully generated PDF preview: {output_path.name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error processing PDF {doc['filename']}: {e}")
+            return False
+    
+    def create_fallback_preview(self, doc: dict, output_path: Path) -> bool:
+        """Create a fallback preview image when PDF processing fails"""
         try:
             from PIL import Image, ImageDraw, ImageFont
             
             # Image dimensions optimized for document cards
             width, height = 400, 300
             
-            # Create white document background
-            img = Image.new('RGB', (width, height), '#ffffff')
+            # Category-based colors
+            category_colors = {
+                'AI': ('#667eea', '#764ba2'),
+                'Machine Learning': ('#f093fb', '#f5576c'),
+                'Data Science': ('#4facfe', '#00f2fe'),
+                'Business': ('#43e97b', '#38f9d7'),
+                'Technology': ('#fa709a', '#fee140'),
+                'Research': ('#a8edea', '#fed6e3')
+            }
+            
+            category = doc.get('category', 'Technology')
+            colors = category_colors.get(category, category_colors['Technology'])
+            
+            # Create gradient background
+            img = Image.new('RGB', (width, height), colors[0])
             draw = ImageDraw.Draw(img)
             
-            # Try to use system fonts, fallback to default
+            # Create gradient effect
+            for i in range(height):
+                ratio = i / height
+                r1, g1, b1 = tuple(int(colors[0][1:][i:i+2], 16) for i in (0, 2, 4))
+                r2, g2, b2 = tuple(int(colors[1][1:][i:i+2], 16) for i in (0, 2, 4))
+                
+                r = int(r1 + (r2 - r1) * ratio)
+                g = int(g1 + (g2 - g1) * ratio)
+                b = int(b1 + (b2 - b1) * ratio)
+                
+                draw.line([(0, i), (width, i)], fill=(r, g, b))
+            
+            # Add overlay
+            overlay = Image.new('RGBA', (width, height), (0, 0, 0, 50))
+            img = Image.alpha_composite(img.convert('RGBA'), overlay).convert('RGB')
+            
+            # Try to use a system font, fallback to default
             try:
-                # Try different font paths for different systems
-                font_paths = [
-                    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-                    '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
-                    '/System/Library/Fonts/Helvetica.ttc',
-                    'C:/Windows/Fonts/arial.ttf'
-                ]
-                
-                title_font = None
-                subtitle_font = None
-                content_font = None
-                
-                for font_path in font_paths:
-                    if os.path.exists(font_path):
-                        try:
-                            title_font = ImageFont.truetype(font_path, 16)
-                            subtitle_font = ImageFont.truetype(font_path, 12)
-                            content_font = ImageFont.truetype(font_path, 10)
-                            break
-                        except:
-                            continue
-                
-                # Fallback to default font
-                if not title_font:
-                    title_font = ImageFont.load_default()
-                    subtitle_font = ImageFont.load_default()
-                    content_font = ImageFont.load_default()
-                    
-            except Exception as e:
-                logger.warning(f"Font loading failed: {e}, using default font")
+                title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+                subtitle_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+                small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+            except:
                 title_font = ImageFont.load_default()
                 subtitle_font = ImageFont.load_default()
-                content_font = ImageFont.load_default()
+                small_font = ImageFont.load_default()
             
-            # Document shadow and border
-            shadow_color = '#e5e7eb'
-            border_color = '#d1d5db'
+            draw = ImageDraw.Draw(img)
             
-            # Draw document shadow
-            draw.rectangle([3, 3, width-1, height-1], fill=shadow_color)
+            # Add title (truncated to fit)
+            title = doc.get('title', doc.get('filename', 'Document'))
+            if len(title) > 30:
+                title = title[:27] + '...'
             
-            # Draw document background
-            draw.rectangle([0, 0, width-4, height-4], fill='#ffffff', outline=border_color, width=2)
+            # Center the text
+            title_bbox = draw.textbbox((0, 0), title, font=title_font)
+            title_width = title_bbox[2] - title_bbox[0]
+            title_x = (width - title_width) // 2
             
-            # Header area
-            header_height = 60
-            draw.rectangle([15, 15, width-19, 15 + header_height], fill='#f9fafb', outline='#e5e7eb', width=1)
+            # Draw text with shadow effect
+            shadow_offset = 1
+            draw.text((title_x + shadow_offset, 120 + shadow_offset), title, fill=(0, 0, 0, 100), font=title_font)
+            draw.text((title_x, 120), title, fill='white', font=title_font)
             
-            # Document title
-            title = (doc.get('title') or doc.get('filename', 'Document'))[:45]
-            if len(title) > 42:
-                title = title[:39] + '...'
+            # Add category badge
+            category_text = f"📂 {category}"
+            cat_bbox = draw.textbbox((0, 0), category_text, font=subtitle_font)
+            cat_width = cat_bbox[2] - cat_bbox[0]
+            cat_x = (width - cat_width) // 2
             
-            # Draw title
-            draw.text((20, 25), title, fill='#1f2937', font=title_font)
-            
-            # Authors
-            authors = doc.get('authors', [])
-            if authors:
-                author_text = ', '.join(authors[:2])
-                if len(author_text) > 35:
-                    author_text = author_text[:32] + '...'
-                draw.text((20, 45), author_text, fill='#6b7280', font=subtitle_font)
-            
-            # Header line
-            draw.line([(15, 85), (width-19, 85)], fill='#d1d5db', width=1)
-            
-            # Content area - simulate document text
-            summary = doc.get('summary', '')
-            if summary:
-                # Break summary into lines
-                words = summary.split()
-                lines = []
-                current_line = []
-                
-                for word in words:
-                    test_line = ' '.join(current_line + [word])
-                    if len(test_line) <= 40:  # Approximate character limit per line
-                        current_line.append(word)
-                    else:
-                        if current_line:
-                            lines.append(' '.join(current_line))
-                            current_line = [word]
-                        else:
-                            lines.append(word)
-                    
-                    if len(lines) >= 4:  # Limit to 4 lines
-                        break
-                
-                if current_line and len(lines) < 4:
-                    lines.append(' '.join(current_line))
-                
-                # Draw content lines
-                y_pos = 100
-                for i, line in enumerate(lines[:4]):
-                    if i == 3 and len(line) > 37:  # Last line, add ellipsis if needed
-                        line = line[:34] + '...'
-                    draw.text((20, y_pos), line, fill='#374151', font=content_font)
-                    y_pos += 15
-            
-            # Simulate additional text lines
-            line_y_positions = [170, 185, 200, 215, 230]
-            line_widths = [width-50, width-70, width-55, width-65, width-45]
-            
-            for y_pos, line_width in zip(line_y_positions, line_widths):
-                if y_pos < height - 30:  # Don't draw too close to bottom
-                    draw.line([(20, y_pos), (line_width, y_pos)], fill='#e5e7eb', width=1)
-            
-            # Category badge
-            category = doc.get('category', 'Document')
-            badge_width = min(len(category) * 8 + 20, 80)
-            badge_x = width - badge_width - 10
-            draw.rectangle([badge_x, 8, badge_x + badge_width, 28], fill='#3b82f6', outline='#2563eb')
-            
-            # Calculate text position for centering
-            bbox = draw.textbbox((0, 0), category, font=content_font)
-            text_width = bbox[2] - bbox[0]
-            text_x = badge_x + (badge_width - text_width) // 2
-            draw.text((text_x, 13), category, fill='white', font=content_font)
-            
-            # Page number
-            draw.text((width-25, height-20), '1', fill='#9ca3af', font=content_font)
+            draw.text((cat_x + 1, 151), category_text, fill=(0, 0, 0, 80), font=subtitle_font)
+            draw.text((cat_x, 150), category_text, fill='white', font=subtitle_font)
             
             # Save the image
             img.save(output_path, 'JPEG', quality=85, optimize=True)
-            logger.info(f"Created preview for {doc.get('filename', 'unknown')}")
+            logger.info(f"Created fallback preview for {doc.get('filename', 'unknown')}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create preview: {e}")
+            logger.error(f"Failed to create fallback preview: {e}")
             return False
 
     def commit_to_public_repo(self, filename: str) -> bool:
