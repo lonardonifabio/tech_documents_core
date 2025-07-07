@@ -1,9 +1,8 @@
 name: Process Documents with Ollama
 
 on:
-  push:
-    paths:
-      - 'documents/**'
+  repository_dispatch:
+    types: [documents-updated]
   workflow_dispatch:
     inputs:
       force_reprocess:
@@ -17,11 +16,42 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
+    - name: Checkout private repository (core)
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.PRIVATE_REPO_PAT }}
         fetch-depth: 0
+
+    - name: Fetch documents and data from public repository
+      run: |
+        echo "Fetching documents and data from public repository..."
+        git clone --depth=1 https://github.com/lonardonifabio/tech_documents.git temp_public
+        
+        # Copy documents and data folders
+        if [ -d "temp_public/documents" ]; then
+          cp -r temp_public/documents ./documents
+          echo "✓ Documents folder copied ($(find documents -name "*.pdf" | wc -l) PDFs)"
+        else
+          echo "⚠ Documents folder not found in public repo"
+          mkdir -p documents
+        fi
+        
+        if [ -d "temp_public/data" ]; then
+          cp -r temp_public/data ./data
+          echo "✓ Data folder copied"
+        else
+          echo "⚠ Data folder not found in public repo - creating minimal data"
+          mkdir -p data
+          echo "[]" > data/documents.json
+          echo "{}" > data/processed_files.json
+        fi
+        
+        # Clean up
+        rm -rf temp_public
+        
+        echo "Files available for processing:"
+        ls -la documents/ 2>/dev/null || echo "No documents directory"
+        ls -la data/ 2>/dev/null || echo "No data directory"
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -51,11 +81,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r scripts/requirements.txt
 
-    - name: Configure Git
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-
     - name: Process documents incrementally
       env:
         OLLAMA_HOST: "127.0.0.1:11434"
@@ -63,6 +88,31 @@ jobs:
       run: |
         echo "🔄 Starting document processing..."
         python scripts/incremental_ollama_processor.py
+        
+    - name: Push updated data back to public repository
+      run: |
+        echo "Pushing updated data back to public repository..."
+        
+        # Clone public repo for pushing updates
+        git clone https://${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
+        cd public_repo
+        
+        # Configure git
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        
+        # Copy updated data files
+        cp -r ../data/* ./data/ 2>/dev/null || echo "No data to copy"
+        
+        # Check if there are changes
+        if git diff --quiet; then
+          echo "No changes to commit"
+        else
+          git add data/
+          git commit -m "Update document analysis data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
+          echo "✅ Successfully pushed updated data to public repository"
+        fi
         
     - name: Create processing summary
       run: |
@@ -75,6 +125,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Total documents processed:** $TOTAL_DOCS" >> $GITHUB_STEP_SUMMARY
           echo "- **Processing time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data pushed to:** https://github.com/lonardonifabio/tech_documents" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ **Document processing failed**" >> $GITHUB_STEP_SUMMARY
         fi

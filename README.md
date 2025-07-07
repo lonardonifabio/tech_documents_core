@@ -101,15 +101,16 @@ OLLAMA_MODEL=gemma3:4b python scripts/incremental_ollama_processor.py
 Located in `.github/workflows/process-documents.yml`, this workflow:
 
 1. **Triggers on**: 
-   - Push to documents folder in public repo
+   - Repository dispatch from public repo when documents are updated
    - Manual dispatch
 
 2. **Process**:
+   - Fetches documents and data from public repository
    - Sets up Python and Ollama
    - Pulls Gemma3:4b model
    - Processes new/changed documents incrementally
    - Updates `documents.json` and `processed_files.json`
-   - Commits changes back to repository
+   - Pushes updated data back to public repository
 
 3. **AI Analysis**: Each document is analyzed for:
    - Title and authors extraction

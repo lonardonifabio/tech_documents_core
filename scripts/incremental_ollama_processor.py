@@ -79,7 +79,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             return False
     
     def process_single_document_with_commit(self, filepath: Path, processed_files: Dict, existing_documents: List[Dict]) -> bool:
-        """Process a single document and commit the result"""
+        """Process a single document and save the result"""
         try:
             logger.info(f"Processing document: {filepath.name}")
             
@@ -106,16 +106,8 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             
             self.processed_count += 1
             
-            # Commit changes
-            commit_message = f"Process document: {filepath.name} ({self.processed_count} processed)"
-            success = self.git_commit_and_push(commit_message)
-            
-            if success:
-                logger.info(f"Successfully processed and committed: {filepath.name}")
-            else:
-                logger.warning(f"Failed to commit changes for: {filepath.name}")
-            
-            return success
+            logger.info(f"Successfully processed: {filepath.name} ({self.processed_count} processed)")
+            return True
             
         except Exception as e:
             logger.error(f"Failed to process {filepath.name}: {e}")
@@ -179,11 +171,9 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             else:
                 logger.error(f"Failed to process {filepath.name}, continuing with next file")
         
-        # Final summary commit
+        # Final summary
         if successful_processes > 0:
-            final_message = f"Document processing batch complete: {successful_processes}/{len(files_to_process)} documents processed successfully"
-            self.git_commit_and_push(final_message)
-            logger.info(f"Processing completed: {successful_processes} documents processed successfully")
+            logger.info(f"Processing completed: {successful_processes}/{len(files_to_process)} documents processed successfully")
         
         return successful_processes > 0
 
