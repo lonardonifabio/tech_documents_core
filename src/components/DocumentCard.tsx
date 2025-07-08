@@ -152,15 +152,16 @@ const DocumentCard: React.FC<DocumentCardProps> = ({ doc, autoOpen = false }) =>
     post += '#ArtificialIntelligence #DataScience #MachineLearning';
     
     const encodedContent = encodeURIComponent(post);
+    const encodedUrl = encodeURIComponent(documentUrl);
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
-      // For mobile, use the text parameter which works better
-      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
+      // For mobile, use both url and text parameters for better compatibility
+      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&text=${encodedContent}`;
       window.open(linkedInUrl, '_blank');
     } else {
-      // For desktop, use the traditional approach
-      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(documentUrl)}&text=${encodedContent}`;
+      // For desktop, use the traditional approach with both parameters
+      const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}&text=${encodedContent}`;
       window.open(linkedInUrl, 'linkedin-share', 'width=600,height=600,scrollbars=yes,resizable=yes');
     }
   };

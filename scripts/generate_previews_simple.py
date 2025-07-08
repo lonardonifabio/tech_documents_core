@@ -169,8 +169,7 @@ def main():
         # Setup paths
         base_dir = Path.cwd()
         data_dir = base_dir / 'data'
-        public_dir = base_dir / 'public'
-        previews_dir = public_dir / 'previews'
+        previews_dir = base_dir / 'previews'
         
         # Create directories
         previews_dir.mkdir(parents=True, exist_ok=True)

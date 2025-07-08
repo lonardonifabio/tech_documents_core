@@ -30,8 +30,7 @@ export const GET: APIRoute = async ({ params }) => {
     const fs = await import('fs/promises');
     const path = await import('path');
     
-    // Check for generated preview in public/previews/
-    // const previewPath = path.resolve(process.cwd(), 'public', 'previews', `${id}.jpg`);
+    // Check for generated preview in previews/
     const previewPath = path.resolve(process.cwd(), 'previews', `${id}.jpg`);
     
     try {

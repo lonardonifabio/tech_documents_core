@@ -16,12 +16,12 @@ export default defineConfig({
   vite: {
     plugins: [
       {
-        name: 'copy-data',
+        name: 'copy-data-and-previews',
         async writeBundle() {
-          // Copy documents.json to dist/data
           const { promises: fs } = await import('fs');
           const { resolve } = await import('path');
           
+          // Copy documents.json to dist/data
           const distDataDir = resolve(process.cwd(), 'dist/data');
           try {
             await fs.access(distDataDir);
@@ -39,6 +39,44 @@ export default defineConfig({
           } catch {
             console.warn('⚠ data/documents.json not found, creating empty array');
             await fs.writeFile(destFile, '[]');
+          }
+          
+          // Copy previews folder to dist/previews
+          const srcPreviewsDir = resolve(process.cwd(), 'previews');
+          const distPreviewsDir = resolve(process.cwd(), 'dist/previews');
+          
+          try {
+            await fs.access(srcPreviewsDir);
+            
+            // Create dist/previews directory
+            try {
+              await fs.access(distPreviewsDir);
+            } catch {
+              await fs.mkdir(distPreviewsDir, { recursive: true });
+            }
+            
+            // Copy all files from previews to dist/previews
+            const files = await fs.readdir(srcPreviewsDir);
+            let copiedCount = 0;
+            
+            for (const file of files) {
+              const srcFilePath = resolve(srcPreviewsDir, file);
+              const destFilePath = resolve(distPreviewsDir, file);
+              
+              try {
+                const stat = await fs.stat(srcFilePath);
+                if (stat.isFile()) {
+                  await fs.copyFile(srcFilePath, destFilePath);
+                  copiedCount++;
+                }
+              } catch (err) {
+                console.warn(`⚠ Failed to copy preview file ${file}:`, err.message);
+              }
+            }
+            
+            console.log(`✓ Copied ${copiedCount} preview images to dist/previews/`);
+          } catch {
+            console.warn('⚠ previews directory not found, skipping preview copy');
           }
         }
       }
