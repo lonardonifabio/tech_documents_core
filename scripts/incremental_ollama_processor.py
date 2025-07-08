@@ -408,8 +408,8 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
                     if preview_success:
                         logger.info(f"✅ Preview generated for {filename}")
                         # Copy the generated preview to public repo
-                        preview_src = Path("public/previews") / f"{doc_id}.jpg"
-                        preview_dst = public_repo_path / "public" / "previews" / f"{doc_id}.jpg"
+                        preview_src = Path("previews") / f"{doc_id}.jpg"
+                        preview_dst = public_repo_path / "previews" / f"{doc_id}.jpg"
                         preview_dst.parent.mkdir(parents=True, exist_ok=True)
                         if preview_src.exists():
                             shutil.copy2(preview_src, preview_dst)
@@ -429,7 +429,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
             try:
                 # Check if there are changes in data or public directories
                 result_data = subprocess.run(['git', 'diff', '--quiet', 'data/'], capture_output=True)
-                result_public = subprocess.run(['git', 'diff', '--quiet', 'public/'], capture_output=True)
+                result_public = subprocess.run(['git', 'diff', '--quiet', 'previews/'], capture_output=True) #it was public before
                 
                 if result_data.returncode == 0 and result_public.returncode == 0:
                     logger.info("No changes to commit for public repo")
@@ -437,7 +437,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
                 
                 # Add changes from both data and public directories
                 subprocess.run(['git', 'add', 'data/'], check=True, capture_output=True)
-                subprocess.run(['git', 'add', 'public/'], check=True, capture_output=True)
+                subprocess.run(['git', 'add', 'previews/'], check=True, capture_output=True) #it was public before
                 
                 commit_message = f"Process document: {filename} - AI analysis and preview complete"
                 subprocess.run(['git', 'commit', '-m', commit_message], check=True, capture_output=True)
