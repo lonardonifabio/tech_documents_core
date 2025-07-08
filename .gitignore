@@ -51,3 +51,6 @@ temp/
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Data Json files
+data/*.json
