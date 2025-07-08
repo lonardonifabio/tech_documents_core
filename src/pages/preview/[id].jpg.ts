@@ -31,7 +31,8 @@ export const GET: APIRoute = async ({ params }) => {
     const path = await import('path');
     
     // Check for generated preview in public/previews/
-    const previewPath = path.resolve(process.cwd(), 'public', 'previews', `${id}.jpg`);
+    // const previewPath = path.resolve(process.cwd(), 'public', 'previews', `${id}.jpg`);
+    const previewPath = path.resolve(process.cwd(), 'previews', `${id}.jpg`);
     
     try {
       const imageBuffer = await fs.readFile(previewPath);
@@ -39,7 +40,8 @@ export const GET: APIRoute = async ({ params }) => {
         status: 200,
         headers: {
           'Content-Type': 'image/jpeg',
-          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+          //'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+          'Cache-Control': 'max-age=86400', // Cache for 24 hours
         },
       });
     } catch (previewError) {
