@@ -119,7 +119,7 @@ const imageUrl = "https://www.fabiolonardoni.it/AIdatasciencelibrary_cover.JPG";
             // Update Open Graph image to use document-specific preview
             const ogImage = document.querySelector('meta[property="og:image"]');
             const ogImageSecure = document.querySelector('meta[property="og:image:secure_url"]');
-            const previewImageUrl = `${baseUrl}/preview/${docId}.jpg`;
+            const previewImageUrl = `${baseUrl}/previews/${docId}.jpg`;
             
             if (ogImage) {
               ogImage.content = previewImageUrl;
