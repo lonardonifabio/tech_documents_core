@@ -183,7 +183,7 @@ class IncrementalOllamaProcessor(FixedOllamaDocumentProcessor):
                 logger.error(f"Document with ID {doc_id} not found")
                 return False
             
-            # Generate preview using the same logic as generate_previews_simple.py
+            # Generate preview using the same logic as generate_previews.py
             preview_filename = f"{doc_id}.jpg"
             preview_path = previews_dir / preview_filename
             

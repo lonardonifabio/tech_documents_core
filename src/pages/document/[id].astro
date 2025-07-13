@@ -27,7 +27,7 @@ const description = doc.summary ?
   `Explore ${doc.title || doc.filename} - AI & Data Science Document from our curated library of 1100+ resources.`;
 const documentUrl = `https://lonardonifabio.github.io/tech_documents/document/${doc.id}`;
 // Use server-generated preview image with cache-busting
-const imageUrl = `https://lonardonifabio.github.io/tech_documents/previews/${doc.id}.jpg?v=${Date.now()}`;
+const imageUrl = `https://lonardonifabio.github.io/tech_documents/preview/${doc.id}.jpg?v=${Date.now()}`;
 const mainAppUrl = `https://lonardonifabio.github.io/tech_documents/?doc=${doc.id}`;
 ---
 
