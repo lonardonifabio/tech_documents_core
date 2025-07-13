@@ -39,8 +39,9 @@ export const GET: APIRoute = async ({ params }) => {
         status: 200,
         headers: {
           'Content-Type': 'image/jpeg',
-          //'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
-          'Cache-Control': 'max-age=86400', // Cache for 24 hours
+          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET',
         },
       });
     } catch (previewError) {

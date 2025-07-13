@@ -26,8 +26,8 @@ const description = doc.summary ?
   (doc.summary.length > 300 ? doc.summary.substring(0, 297) + '...' : doc.summary) : 
   `Explore ${doc.title || doc.filename} - AI & Data Science Document from our curated library of 1100+ resources.`;
 const documentUrl = `https://lonardonifabio.github.io/tech_documents/document/${doc.id}`;
-// Use server-generated preview image with cache-busting
-const imageUrl = `https://lonardonifabio.github.io/tech_documents/preview/${doc.id}.jpg?v=${Date.now()}`;
+// Use server-generated preview image without cache-busting for LinkedIn compatibility
+const imageUrl = `https://lonardonifabio.github.io/tech_documents/preview/${doc.id}.jpg`;
 const mainAppUrl = `https://lonardonifabio.github.io/tech_documents/?doc=${doc.id}`;
 ---
 
@@ -63,7 +63,7 @@ const mainAppUrl = `https://lonardonifabio.github.io/tech_documents/?doc=${doc.i
     <meta property="og:url" content={documentUrl}>
     <meta property="og:image" content={imageUrl}>
     <meta property="og:image:secure_url" content={imageUrl}>
-    <meta property="og:image:type" content="image/svg+xml">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content={`${doc.title || doc.filename} - AI & Data Science Document Library`}>
