@@ -258,33 +258,8 @@ const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <header className="text-center mb-12 relative">
-          <div className="flex items-center justify-center mb-4">
-            <img 
-              src="https://www.fabiolonardoni.it/io_ds.png" 
-              alt="Profile" 
-              className="w-16 h-16 rounded-full mr-4 border-2 border-gray-300"
-            />
-            <h1 className="text-4xl font-bold text-gray-800">
-              AI & Data Science Library
-            </h1>
-            <div className="text-4xl ml-4">🤖</div>
-          </div>
-          <p className="text-xl text-gray-600 mb-2">
-            Automated collection of Artificial Intelligence and Data Science documents
-          </p>
-          <p className="text-sm text-gray-500">
-            {documents.length} documents • Click any document to preview
-          </p>
-          <p className="text-sm text-gray-500">
-            Developed by <a href="https://www.fabiolonardoni.it" className="text-blue-500 hover:underline">Fabio Lonardoni</a>
-          </p>
-          
-        </header>
-
-        <SearchFilters
+    <div className="p-6">
+      <SearchFilters
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           selectedCategory={selectedCategory}
@@ -298,15 +273,15 @@ const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
         {filteredDocs.length > 0 ? (
           <>
             <div className="mb-6 flex items-center justify-between">
-              <div className="text-sm text-gray-600 bg-white px-4 py-2 rounded-lg">
-                📊 Showing {displayedDocs.length} of {filteredDocs.length} documents
-                {filteredDocs.length !== documents.length && (
-                  <span className="text-gray-400"> (filtered from {documents.length} total)</span>
-                )}
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-blue-500 rounded"></div>
+                <p className="text-sm text-gray-600">
+                  Showing {Math.min(20, displayedDocs.length)} of {filteredDocs.length} documents
+                </p>
               </div>
               
               {/* Knowledge Graph Status Indicator */}
-              <div className={`text-xs px-3 py-1 rounded-full ${
+              <div className={`text-sm px-3 py-1 rounded-full ${
                 isKnowledgeGraphActive 
                   ? 'bg-green-100 text-green-800' 
                   : 'bg-orange-100 text-orange-800'
@@ -356,7 +331,6 @@ const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
             </p>
           </div>
         )}
-      </div>
     </div>
   );
 };
