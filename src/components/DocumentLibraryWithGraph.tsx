@@ -153,12 +153,91 @@ const DocumentLibraryWithGraph: React.FC<DocumentLibraryWithGraphProps> = ({
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b relative overflow-hidden">
-        {/* Decorative background elements */}
-        <div className="absolute left-8 top-4 w-48 h-48 border-4 border-blue-600 rounded-full opacity-10 transform -rotate-12"></div>
-        <div className="absolute right-8 top-4 w-48 h-48 border-4 border-blue-600 rounded-full opacity-10 transform rotate-12"></div>
+        {/* Decorative background elements - hidden on mobile */}
+        <div className="absolute left-8 top-4 w-48 h-48 border-4 border-blue-600 rounded-full opacity-10 transform -rotate-12 hidden lg:block"></div>
+        <div className="absolute right-8 top-4 w-48 h-48 border-4 border-blue-600 rounded-full opacity-10 transform rotate-12 hidden lg:block"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex justify-between items-center py-6">
+          {/* Mobile Layout */}
+          <div className="lg:hidden py-4 space-y-4">
+            {/* Center Content - Mobile */}
+            <div className="text-center">
+              <div className="flex items-center justify-center mb-2">
+                <div className="w-8 h-8 rounded-full mr-2">
+                  <img src="https://github.com/lonardonifabio.png" alt="Profile" className="w-8 h-8 rounded-full" />
+                </div>
+                <h1 className="text-lg font-bold text-gray-900">AI & Data Science Library</h1>
+                <div className="w-8 h-8 ml-2 flex items-center justify-center">
+                  <span className="text-lg">🤖</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-600">Automated collection of AI and Data Science documents</p>
+              <p className="text-xs text-gray-500 mt-1">{documents.length} documents • Click any document to preview</p>
+              <p className="text-xs text-gray-500">Developed by <a href="#" className="text-blue-600">Fabio Lonardoni</a></p>
+            </div>
+
+            {/* Podcast Sections - Mobile */}
+            <div className="flex justify-center space-x-6">
+              {/* English Podcast Section */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <img src="https://flagcdn.com/w20/gb.png" alt="English" className="w-4 h-3" />
+                  <span className="text-xs font-medium">English</span>
+                </div>
+                <div className="flex gap-1">
+                  <a href="https://open.spotify.com/show/36U5N1SOzaK2RWEfpXP2yb" target="_blank" 
+                     className="w-6 h-6 bg-green-500 hover:bg-green-600 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                  </a>
+                  <a href="https://podcasts.apple.com/us/podcast/ai-and-data-science-podcast/id1834758150" target="_blank"
+                     className="w-6 h-6 bg-black hover:bg-gray-800 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                  </a>
+                  <a href="https://music.amazon.co.uk/podcasts/c08b42e8-a102-43e4-9ab5-c830512bd295/ai-and-data-science-podcast" target="_blank"
+                     className="w-6 h-6 bg-orange-500 hover:bg-orange-600 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M.045 18.02c.072-.116.187-.124.348-.022 3.636 2.11 8.206 3.166 13.044 2.725 2.32-.213 4.499-.935 6.374-2.124.075-.048.185-.037.237.021.055.064.047.174-.021.236-3.708 2.729-8.582 3.518-13.655 2.596-2.588-.47-5.008-1.536-7.142-3.18-.22-.169-.235-.234-.185-.252zm-.678-3.007c.088-.137.238-.142.399-.026 4.298 2.494 9.615 3.74 15.188 3.119 2.657-.296 5.188-1.113 7.421-2.393.096-.055.215-.042.277.024.068.075.061.201-.024.277-4.304 3.179-9.792 4.07-15.493 3.396-2.989-.354-5.833-1.454-8.398-3.226-.257-.178-.277-.263-.37-.171zm-.527-2.963c.104-.162.289-.169.477-.031 5.149 2.97 11.799 4.448 18.334 3.702 3.186-.364 6.24-1.328 8.934-2.841.115-.065.259-.049.332.029.081.089.072.24-.029.332-5.153 3.8-11.748 4.835-18.792 4.009-3.543-.416-6.98-1.74-10.15-3.863-.306-.205-.331-.313-.106-.337z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+
+              {/* Italian Podcast Section */}
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-1">
+                  <img src="https://flagcdn.com/w20/it.png" alt="Italian" className="w-4 h-3" />
+                  <span className="text-xs font-medium">Italiano</span>
+                </div>
+                <div className="flex gap-1">
+                  <a href="https://open.spotify.com/show/1UjrbCJaGGXpsMxEVYhoar" target="_blank"
+                     className="w-6 h-6 bg-green-500 hover:bg-green-600 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                    </svg>
+                  </a>
+                  <a href="https://podcasts.apple.com/it/podcast/techboy/id1834487895" target="_blank"
+                     className="w-6 h-6 bg-black hover:bg-gray-800 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                  </a>
+                  <a href="https://music.amazon.it/podcasts/5b639857-338c-4832-a1c4-7cadf87acbc3/techboy" target="_blank"
+                     className="w-6 h-6 bg-orange-500 hover:bg-orange-600 rounded flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M.045 18.02c.072-.116.187-.124.348-.022 3.636 2.11 8.206 3.166 13.044 2.725 2.32-.213 4.499-.935 6.374-2.124.075-.048.185-.037.237.021.055.064.047.174-.021.236-3.708 2.729-8.582 3.518-13.655 2.596-2.588-.47-5.008-1.536-7.142-3.18-.22-.169-.235-.234-.185-.252zm-.678-3.007c.088-.137.238-.142.399-.026 4.298 2.494 9.615 3.74 15.188 3.119 2.657-.296 5.188-1.113 7.421-2.393.096-.055.215-.042.277.024.068.075.061.201-.024.277-4.304 3.179-9.792 4.07-15.493 3.396-2.989-.354-5.833-1.454-8.398-3.226-.257-.178-.277-.263-.37-.171zm-.527-2.963c.104-.162.289-.169.477-.031 5.149 2.97 11.799 4.448 18.334 3.702 3.186-.364 6.24-1.328 8.934-2.841.115-.065.259-.049.332.029.081.089.072.24-.029.332-5.153 3.8-11.748 4.835-18.792 4.009-3.543-.416-6.98-1.74-10.15-3.863-.306-.205-.331-.313-.106-.337z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden lg:flex justify-between items-center py-6">
             {/* English Podcast Section */}
             <div className="flex items-center gap-2">
               <img src="https://flagcdn.com/w20/gb.png" alt="English" className="w-5 h-3" />
