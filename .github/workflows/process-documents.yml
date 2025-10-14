@@ -16,6 +16,17 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+
+    - name: Clean up disk space
+      run: |
+        echo "Spazio prima della pulizia:"
+        df -h
+        sudo rm -rf /usr/share/dotnet # Rimuove l'SDK di .NET se non necessario
+        sudo rm -rf /opt/ghc # Rimuove Haskell se non necessario
+        sudo docker image prune -af # Rimuove tutte le immagini Docker non usate
+        echo "Spazio dopo la pulizia:"
+        df -h
+        
     - name: Checkout private repository (core)
       uses: actions/checkout@v4
       with:
