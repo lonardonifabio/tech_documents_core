@@ -20,73 +20,45 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.PRIVATE_REPO_PAT }}
-        fetch-depth: 0
+        # fetch-depth: 1 è più veloce e usa meno spazio se non ti serve la cronologia completa
+        fetch-depth: 1
 
-    - name: Smart fetch documents and data from public repository
+    # --- NUOVO STEP: Libera spazio sul runner ---
+    # Questa operazione può liberare 10-15 GB
+    - name: Free up disk space
       run: |
-        echo "🔄 Smart fetching documents and data from public repository (source of truth)..."
-        git clone --depth=1 https://github.com/lonardonifabio/tech_documents.git temp_public
-        
-        # Copy documents folder (always safe to overwrite)
-        if [ -d "temp_public/documents" ]; then
-          cp -r temp_public/documents ./documents
-          echo "✓ Documents folder copied ($(find documents -name "*.pdf" | wc -l) PDFs)"
-        else
-          echo "⚠ Documents folder not found in public repo"
-          mkdir -p documents
-        fi
-        
-        # Always use the latest data from public repository (source of truth)
-        # This ensures we start with the most recent processed data
-        if [ -d "temp_public/data" ]; then
-          echo "✅ Using latest data from public repository (source of truth)"
-          cp -r temp_public/data ./data
-          
-          # Validate the copied data
-          if [ -f "data/documents.json" ]; then
-            if python3 -c "import json; json.load(open('data/documents.json'))" 2>/dev/null; then
-              doc_count=$(python3 -c "import json; print(len(json.load(open('data/documents.json'))))")
-              echo "✅ documents.json is valid ($doc_count existing documents)"
-            else
-              echo "❌ documents.json is invalid, creating empty array"
-              echo "[]" > data/documents.json
-            fi
-          fi
-          
-          if [ -f "data/processed_files.json" ]; then
-            if python3 -c "import json; json.load(open('data/processed_files.json'))" 2>/dev/null; then
-              processed_count=$(python3 -c "import json; print(len(json.load(open('data/processed_files.json'))))")
-              echo "✅ processed_files.json is valid ($processed_count processed files)"
-            else
-              echo "❌ processed_files.json is invalid, creating empty object"
-              echo "{}" > data/processed_files.json
-            fi
-          fi
-          
-          echo "✓ Data folder synchronized with public repository"
-        else
-          echo "⚠ Data folder not found in public repo - creating minimal data"
-          mkdir -p data
-          echo "[]" > data/documents.json
-          echo "{}" > data/processed_files.json
-        fi
-        
-        # Copy previews if they exist to maintain consistency
-        if [ -d "temp_public/previews" ]; then
-          mkdir -p previews
-          cp -r temp_public/previews/* ./previews/ 2>/dev/null || true
-          preview_count=$(find previews -name "*.jpg" 2>/dev/null | wc -l || echo '0')
-          echo "✓ Copied $preview_count existing preview images"
-        fi
-        
-        # Clean up
-        rm -rf temp_public
-        
-        echo "📊 Processing environment ready:"
-        echo "📁 Documents: $(find documents -name "*.pdf" 2>/dev/null | wc -l || echo '0')"
-        echo "📄 Existing processed documents: $(python3 -c "import json; print(len(json.load(open('data/documents.json'))))" 2>/dev/null || echo '0')"
-        echo "🔍 Processed files tracking: $(python3 -c "import json; print(len(json.load(open('data/processed_files.json'))))" 2>/dev/null || echo '0')"
+        echo "🧹 Freeing up disk space..."
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        echo "✅ Disk space freed."
+        df -h
 
+    # --- WORKFLOW OTTIMIZZATO: Clona il repo pubblico una sola volta ---
+    - name: Clone public repo and prepare workspace
+      run: |
+        echo "🔄 Cloning public repo for processing and commits..."
+        # Clona il repo pubblico in una cartella 'public_repo'
+        git clone https://${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
+        
+        # Copia i documenti e i dati necessari dal repo pubblico alla root del workspace
+        # Questo permette allo script Python di trovarli facilmente
+        echo "📂 Syncing files..."
+        cp -r public_repo/documents ./documents
+        cp -r public_repo/data ./data
+        mkdir -p previews
+        cp -r public_repo/previews/* ./previews/ 2>/dev/null || true
+        
+        # Configura git all'interno della cartella del repo pubblico
+        # Sarà usato più tardi per fare i commit
+        cd public_repo
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        cd ..
+        
+        echo "✅ Workspace is ready."
+        
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -104,51 +76,50 @@ jobs:
     - name: Start Ollama service
       run: |
         ollama serve &
-        sleep 10
+        # Attendi che il servizio sia pronto
+        sleep 15
         
     - name: Pull AI model
       run: |
-        ollama pull gemma3:4b
+        echo "Downloading AI model (this may take a while)..."
+        ollama pull gemma:2b # MODIFICATO: Usa un modello più piccolo come gemma:2b (~1.4GB) se possibile.
+                            # Se 'gemma3:4b' è necessario, lo spazio liberato prima dovrebbe bastare.
         
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r scripts/requirements.txt
+        # Assicurati che il file requirements.txt sia nella root o specifica il path corretto
+        if [ -f "scripts/requirements.txt" ]; then
+          pip install -r scripts/requirements.txt
+        else
+          echo "requirements.txt not found in scripts folder"
+          exit 1
+        fi
 
-    - name: Setup public repository for incremental commits
-      run: |
-        echo "Setting up public repository for incremental commits..."
-        
-        # Clone public repo for incremental updates
-        git clone https://${{ secrets.PRIVATE_REPO_PAT }}@github.com/lonardonifabio/tech_documents.git public_repo
-        cd public_repo
-        
-        # Configure git
-        git config user.name "GitHub Action"
-        git config user.email "action@github.com"
-        
-        echo "✅ Public repository ready for incremental commits"
-
+    # --- STEP DI ELABORAZIONE MODIFICATO ---
+    # Non è più necessario clonare di nuovo il repo
     - name: Process documents incrementally with commits
       env:
         OLLAMA_HOST: "127.0.0.1:11434"
         FORCE_REPROCESS: ${{ github.event.inputs.force_reprocess }}
       run: |
-        echo "🔄 Starting document processing with incremental commits..."
+        echo "🔄 Starting document processing..."
+        # Lo script Python ora deve sapere che il repo per i commit si trova in 'public_repo'
+        # Assicurati che lo script salvi i file in './public_repo/data' e './public_repo/previews'
+        # e che esegua i comandi git da dentro la cartella './public_repo'
         python scripts/incremental_ollama_processor.py
-        
+
     - name: Create processing summary
       run: |
         echo "## 📄 Document Processing Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ -f "data/documents.json" ]; then
-          TOTAL_DOCS=$(python -c "import json; print(len(json.load(open('data/documents.json'))))")
+        # Leggi i dati dalla cartella del repo pubblico dove sono stati salvati
+        if [ -f "public_repo/data/documents.json" ]; then
+          TOTAL_DOCS=$(python -c "import json; print(len(json.load(open('public_repo/data/documents.json'))))")
           echo "✅ **Document processing completed**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Total documents processed:** $TOTAL_DOCS" >> $GITHUB_STEP_SUMMARY
-          echo "- **Processing time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
-          echo "- **Data pushed to:** https://github.com/lonardonifabio/tech_documents" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ **Document processing failed**" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Document processing failed or no data produced**" >> $GITHUB_STEP_SUMMARY
         fi
